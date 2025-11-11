@@ -488,17 +488,42 @@ impl eframe::App for WavesApp {
 
                                 let at_root = self.current_dir == self.root_dir;
                                 if !at_root {
+                                    let text_color = egui::Color32::from_rgb(150, 150, 150);
                                     let back_button = egui::Button::new(
                                         egui::RichText::new("<")
                                             .size(14.0)
-                                            .color(egui::Color32::from_rgb(150, 150, 150))
+                                            .color(text_color)
                                     )
                                     .fill(egui::Color32::TRANSPARENT)
                                     .stroke(egui::Stroke::NONE)
-                                    .frame(false);
+                                    .rounding(0.0)
+                                    .min_size(egui::vec2(30.0, 25.0));
 
-                                    if ui.add(back_button).clicked() {
+                                    let back_response = ui.add(back_button);
+
+                                    if back_response.clicked() {
                                         back_button_clicked = true;
+                                    }
+
+                                    if back_response.is_pointer_button_down_on() {
+                                        ui.painter().rect_filled(
+                                            back_response.rect,
+                                            0.0,
+                                            egui::Color32::WHITE,
+                                        );
+                                        ui.painter().text(
+                                            back_response.rect.center(),
+                                            egui::Align2::CENTER_CENTER,
+                                            "<",
+                                            egui::FontId::proportional(14.0),
+                                            egui::Color32::BLACK,
+                                        );
+                                    } else if back_response.hovered() {
+                                        ui.painter().rect_stroke(
+                                            back_response.rect,
+                                            0.0,
+                                            egui::Stroke::new(1.0, egui::Color32::WHITE),
+                                        );
                                     }
 
                                     ui.add_space(5.0);
