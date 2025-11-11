@@ -96,7 +96,7 @@ fn default_sidebar_width() -> f32 {
 }
 
 fn default_ui_sounds_volume() -> f32 {
-    0.1
+    0.04
 }
 
 impl Default for Config {
