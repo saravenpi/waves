@@ -1040,7 +1040,8 @@ impl eframe::App for WavesApp {
 
                                                         let button = egui::Button::new(egui::RichText::new(button_text).color(text_color))
                                                             .fill(bg_color)
-                                                            .stroke(egui::Stroke::NONE);
+                                                            .stroke(egui::Stroke::NONE)
+                                                            .rounding(0.0);
 
                                                         if ui.add(button).clicked() {
                                                             self.config.animation_type = anim_type;
@@ -1083,7 +1084,8 @@ impl eframe::App for WavesApp {
 
                                                 let left_button = egui::Button::new(egui::RichText::new("Left").color(left_text_color))
                                                     .fill(left_bg_color)
-                                                    .stroke(egui::Stroke::NONE);
+                                                    .stroke(egui::Stroke::NONE)
+                                                    .rounding(0.0);
 
                                                 if ui.add(left_button).clicked() {
                                                     self.config.sidebar_position = SidebarPosition::Left;
@@ -1103,7 +1105,8 @@ impl eframe::App for WavesApp {
 
                                                 let right_button = egui::Button::new(egui::RichText::new("Right").color(right_text_color))
                                                     .fill(right_bg_color)
-                                                    .stroke(egui::Stroke::NONE);
+                                                    .stroke(egui::Stroke::NONE)
+                                                    .rounding(0.0);
 
                                                 if ui.add(right_button).clicked() {
                                                     self.config.sidebar_position = SidebarPosition::Right;
