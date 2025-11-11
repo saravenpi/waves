@@ -1,0 +1,29 @@
+# Rust
+/target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+/waves
+*.app
+*.exe
+*.dmg
+*.deb
+*.rpm
+
+# Config and cache
+.waves.yml
+.waves/
+
+# Temporary files
+*.tmp
+*.log
