@@ -115,6 +115,7 @@ show_status_bar: false
 primary_color: "#9664FF"
 window_opacity: 100.0
 custom_font: "~/Library/Fonts/MyFont.ttf"
+sidebar_width: 500.0
 ```
 
 ## Technical Details

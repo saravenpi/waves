@@ -22,33 +22,62 @@ impl WavesApp {
 
         match key {
             egui::Key::J => {
+                let mut moved = false;
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
                         if self.columns[0].selected < self.columns[0].entries.len().saturating_sub(1) {
                             self.columns[0].selected += 1;
+                            moved = true;
                         }
                     }
                     SidebarView::Favorites => {
                         if self.favorites_selected < self.favorites.len().saturating_sub(1) {
                             self.favorites_selected += 1;
+                            moved = true;
                         }
                     }
-                    SidebarView::Settings => {}
+                    SidebarView::Settings => {
+                        let max_items = 9;
+                        if self.settings_focused_item < max_items - 1 {
+                            self.settings_focused_item += 1;
+                            moved = true;
+                        }
+                    }
+                }
+                if moved {
+                    crate::cursor_sound::play_cursor_sound(
+                        self.config.ui_sounds_enabled,
+                        self.config.ui_sounds_volume
+                    );
                 }
             }
             egui::Key::K => {
+                let mut moved = false;
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
                         if self.columns[0].selected > 0 {
                             self.columns[0].selected -= 1;
+                            moved = true;
                         }
                     }
                     SidebarView::Favorites => {
                         if self.favorites_selected > 0 {
                             self.favorites_selected -= 1;
+                            moved = true;
                         }
                     }
-                    SidebarView::Settings => {}
+                    SidebarView::Settings => {
+                        if self.settings_focused_item > 0 {
+                            self.settings_focused_item -= 1;
+                            moved = true;
+                        }
+                    }
+                }
+                if moved {
+                    crate::cursor_sound::play_cursor_sound(
+                        self.config.ui_sounds_enabled,
+                        self.config.ui_sounds_volume
+                    );
                 }
             }
             egui::Key::L | egui::Key::Enter => {
@@ -74,14 +103,230 @@ impl WavesApp {
                             }
                         }
                     }
-                    SidebarView::Settings => {}
+                    SidebarView::Settings => {
+                        match self.settings_focused_item {
+                            0 => {
+                                let preset_colors = vec![
+                                    "#9664FF", "#4A90E2", "#50E3C2",
+                                    "#FF6B9D", "#FF8A00", "#FF4444"
+                                ];
+                                if let Some(current_idx) = preset_colors.iter().position(|c| c.to_lowercase() == self.config.primary_color.to_lowercase()) {
+                                    let next_idx = (current_idx + 1) % preset_colors.len();
+                                    self.config.primary_color = preset_colors[next_idx].to_string();
+                                    let _ = self.config.save();
+                                }
+                            }
+                            2 => {
+                                self.config.show_status_bar = !self.config.show_status_bar;
+                                let _ = self.config.save();
+                            }
+                            3 => {
+                                self.config.animation = !self.config.animation;
+                                let _ = self.config.save();
+                            }
+                            4 => {
+                                if self.config.animation {
+                                    use crate::config::AnimationType;
+                                    self.config.animation_type = match self.config.animation_type {
+                                        AnimationType::Spectrum => AnimationType::WaveformPulse,
+                                        AnimationType::WaveformPulse => AnimationType::CircleSpectrum,
+                                        AnimationType::CircleSpectrum => AnimationType::Spectrum,
+                                    };
+                                    let _ = self.config.save();
+                                }
+                            }
+                            5 => {
+                                use crate::config::SidebarPosition;
+                                self.config.sidebar_position = match self.config.sidebar_position {
+                                    SidebarPosition::Left => SidebarPosition::Right,
+                                    SidebarPosition::Right => SidebarPosition::Left,
+                                };
+                                let _ = self.config.save();
+                            }
+                            6 => {
+                                self.config.ui_sounds_enabled = !self.config.ui_sounds_enabled;
+                                let _ = self.config.save();
+                            }
+                            _ => {}
+                        }
+                    }
                 }
             }
             egui::Key::H => {
-                if let Some(parent) = self.current_dir.parent() {
-                    if parent >= self.root_dir.as_path() {
-                        self.current_dir = parent.to_path_buf();
-                        self.update_columns();
+                match self.sidebar_view {
+                    SidebarView::FileBrowser => {
+                        if let Some(parent) = self.current_dir.parent() {
+                            if parent >= self.root_dir.as_path() {
+                                self.current_dir = parent.to_path_buf();
+                                self.update_columns();
+                            }
+                        }
+                    }
+                    SidebarView::Settings => {
+                        match self.settings_focused_item {
+                            0 => {
+                                let preset_colors = vec![
+                                    "#9664FF", "#4A90E2", "#50E3C2",
+                                    "#FF6B9D", "#FF8A00", "#FF4444"
+                                ];
+                                if let Some(current_idx) = preset_colors.iter().position(|c| c.to_lowercase() == self.config.primary_color.to_lowercase()) {
+                                    let prev_idx = if current_idx == 0 {
+                                        preset_colors.len() - 1
+                                    } else {
+                                        current_idx - 1
+                                    };
+                                    self.config.primary_color = preset_colors[prev_idx].to_string();
+                                    let _ = self.config.save();
+                                }
+                            }
+                            1 => {
+                                self.config.window_opacity = (self.config.window_opacity - 5.0).max(0.0);
+                                let _ = self.config.save();
+                            }
+                            2 => {
+                                self.config.show_status_bar = false;
+                                let _ = self.config.save();
+                            }
+                            3 => {
+                                self.config.animation = false;
+                                let _ = self.config.save();
+                            }
+                            4 => {
+                                if self.config.animation {
+                                    use crate::config::AnimationType;
+                                    self.config.animation_type = match self.config.animation_type {
+                                        AnimationType::Spectrum => AnimationType::CircleSpectrum,
+                                        AnimationType::CircleSpectrum => AnimationType::WaveformPulse,
+                                        AnimationType::WaveformPulse => AnimationType::Spectrum,
+                                    };
+                                    let _ = self.config.save();
+                                }
+                            }
+                            5 => {
+                                use crate::config::SidebarPosition;
+                                self.config.sidebar_position = match self.config.sidebar_position {
+                                    SidebarPosition::Left => SidebarPosition::Right,
+                                    SidebarPosition::Right => SidebarPosition::Left,
+                                };
+                                let _ = self.config.save();
+                            }
+                            6 => {
+                                self.config.ui_sounds_enabled = false;
+                                let _ = self.config.save();
+                            }
+                            7 => {
+                                if self.config.ui_sounds_enabled {
+                                    self.config.ui_sounds_volume = (self.config.ui_sounds_volume - 0.05).max(0.0);
+                                    let _ = self.config.save();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            egui::Key::ArrowLeft => {
+                match self.sidebar_view {
+                    SidebarView::Settings => {
+                        match self.settings_focused_item {
+                            0 => {
+                                let preset_colors = vec![
+                                    "#9664FF", "#4A90E2", "#50E3C2",
+                                    "#FF6B9D", "#FF8A00", "#FF4444"
+                                ];
+                                if let Some(current_idx) = preset_colors.iter().position(|c| c.to_lowercase() == self.config.primary_color.to_lowercase()) {
+                                    let prev_idx = if current_idx == 0 {
+                                        preset_colors.len() - 1
+                                    } else {
+                                        current_idx - 1
+                                    };
+                                    self.config.primary_color = preset_colors[prev_idx].to_string();
+                                    let _ = self.config.save();
+                                }
+                            }
+                            1 => {
+                                self.config.window_opacity = (self.config.window_opacity - 5.0).max(0.0);
+                                let _ = self.config.save();
+                            }
+                            7 => {
+                                if self.config.ui_sounds_enabled {
+                                    self.config.ui_sounds_volume = (self.config.ui_sounds_volume - 0.05).max(0.0);
+                                    let _ = self.config.save();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    SidebarView::Favorites => {
+                        if self.favorites_selected > 0 {
+                            self.favorites_selected -= 1;
+                            crate::cursor_sound::play_cursor_sound(
+                                self.config.ui_sounds_enabled,
+                                self.config.ui_sounds_volume
+                            );
+                            if let Some(fav) = self.favorites.get(self.favorites_selected).cloned() {
+                                if !fav.is_dir {
+                                    self.play_file(&fav.path, ctx);
+                                }
+                            }
+                        }
+                    }
+                    SidebarView::FileBrowser => {
+                        match self.playback_context {
+                            SidebarView::Favorites => self.play_previous_favorite(ctx),
+                            _ => self.play_previous_song(ctx),
+                        }
+                    }
+                }
+            }
+            egui::Key::ArrowRight => {
+                match self.sidebar_view {
+                    SidebarView::Settings => {
+                        match self.settings_focused_item {
+                            0 => {
+                                let preset_colors = vec![
+                                    "#9664FF", "#4A90E2", "#50E3C2",
+                                    "#FF6B9D", "#FF8A00", "#FF4444"
+                                ];
+                                if let Some(current_idx) = preset_colors.iter().position(|c| c.to_lowercase() == self.config.primary_color.to_lowercase()) {
+                                    let next_idx = (current_idx + 1) % preset_colors.len();
+                                    self.config.primary_color = preset_colors[next_idx].to_string();
+                                    let _ = self.config.save();
+                                }
+                            }
+                            1 => {
+                                self.config.window_opacity = (self.config.window_opacity + 5.0).min(100.0);
+                                let _ = self.config.save();
+                            }
+                            7 => {
+                                if self.config.ui_sounds_enabled {
+                                    self.config.ui_sounds_volume = (self.config.ui_sounds_volume + 0.05).min(1.0);
+                                    let _ = self.config.save();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    SidebarView::Favorites => {
+                        if self.favorites_selected < self.favorites.len().saturating_sub(1) {
+                            self.favorites_selected += 1;
+                            crate::cursor_sound::play_cursor_sound(
+                                self.config.ui_sounds_enabled,
+                                self.config.ui_sounds_volume
+                            );
+                            if let Some(fav) = self.favorites.get(self.favorites_selected).cloned() {
+                                if !fav.is_dir {
+                                    self.play_file(&fav.path, ctx);
+                                }
+                            }
+                        }
+                    }
+                    SidebarView::FileBrowser => {
+                        match self.playback_context {
+                            SidebarView::Favorites => self.play_next_favorite(ctx),
+                            _ => self.play_next_song(ctx),
+                        }
                     }
                 }
             }
@@ -192,12 +437,6 @@ impl WavesApp {
                     SidebarView::Favorites => SidebarView::Settings,
                     SidebarView::Settings => SidebarView::FileBrowser,
                 };
-            }
-            egui::Key::ArrowRight => {
-                self.play_next_song(ctx);
-            }
-            egui::Key::ArrowLeft => {
-                self.play_previous_song(ctx);
             }
             egui::Key::Escape => {
                 self.clipboard = None;

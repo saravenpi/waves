@@ -9,6 +9,7 @@ mod utils;
 mod album_cover;
 mod app;
 mod macos;
+mod cursor_sound;
 
 use app::WavesApp;
 use config::Config;
@@ -20,6 +21,8 @@ use std::sync::mpsc;
 /// Initializes the GUI window with custom fonts, styling, and configuration.
 /// Loads application icon and sets up the eframe viewport with user preferences.
 fn main() -> eframe::Result {
+    cursor_sound::init_sound_system();
+
     let config = Config::load();
 
     let (file_open_sender, file_open_receiver) = mpsc::channel();
@@ -65,7 +68,7 @@ fn main() -> eframe::Result {
             #[cfg(target_os = "macos")]
             {
                 use winit::platform::macos::EventLoopBuilderExtMacOS;
-                let sender = file_open_sender_for_builder.clone();
+                let _sender = file_open_sender_for_builder.clone();
                 builder.with_default_menu(false);
                 builder.with_activate_ignoring_other_apps(true);
             }

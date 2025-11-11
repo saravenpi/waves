@@ -215,6 +215,7 @@ Location:
 Available options:
 - `animation` (bool): Enable/disable spectrum visualization (default: true)
 - `sidebar_position` (string): "left" or "right" (default: left)
+- `sidebar_width` (float): Width of the sidebar in pixels (default: 500.0, range: 300.0-800.0)
 - `decorations` (bool): Show/hide window title bar (default: true)
 - `window_corner_radius` (float): Corner rounding radius in pixels (default: 0.0)
 - `default_folder` (string): Default folder to open when no argument provided (supports ~ expansion)
@@ -227,12 +228,16 @@ Example:
 ```yaml
 animation: true
 sidebar_position: right
+sidebar_width: 600.0
 decorations: false
 window_corner_radius: 12.0
 default_folder: "~/Music/Musa/"
 show_status_bar: false
 custom_font: "~/Library/Fonts/MyFont.ttf"
 ```
+
+### Resizable Sidebar
+The sidebar is resizable by dragging the edge. The width is automatically saved to the config file and persists across sessions. Width can be adjusted between 300 and 800 pixels.
 
 ### Font
 Custom fonts can now be configured via the `custom_font` option in the config file. If not specified, the application uses the system default font. The font path supports tilde expansion for cross-platform compatibility.

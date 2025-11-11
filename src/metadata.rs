@@ -160,17 +160,18 @@ pub fn extract_metadata(path: &Path) -> (String, Option<String>, Option<String>,
 /// Extracts the total duration of an audio file.
 ///
 /// Uses rodio decoder to determine track length.
+/// Falls back to calculating from sample count if total_duration is unavailable.
 /// # Arguments
 /// * `path` - Path to the audio file
 /// # Returns
-/// Duration of the track, defaults to 180 seconds if extraction fails
+/// Duration of the track, defaults to 1 second if all extraction methods fail
 pub fn extract_duration(path: &Path) -> Duration {
     let result = std::panic::catch_unwind(|| {
         let file = match File::open(path) {
             Ok(f) => f,
             Err(e) => {
                 eprintln!("Failed to open file for duration extraction {:?}: {}", path, e);
-                return Duration::from_secs(180);
+                return Duration::from_secs(1);
             }
         };
 
@@ -179,19 +180,32 @@ pub fn extract_duration(path: &Path) -> Duration {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("Failed to decode file for duration extraction {:?}: {}", path, e);
-                return Duration::from_secs(180);
+                return Duration::from_secs(1);
             }
         };
 
-        let total_duration = source.total_duration();
-        total_duration.unwrap_or(Duration::from_secs(180))
+        if let Some(duration) = source.total_duration() {
+            return duration;
+        }
+
+        let sample_rate = source.sample_rate();
+        let channels = source.channels();
+        let sample_count = source.count();
+
+        if sample_rate > 0 && channels > 0 {
+            let total_samples = sample_count as u64;
+            let duration_secs = total_samples / (sample_rate as u64 * channels as u64);
+            Duration::from_secs(duration_secs)
+        } else {
+            Duration::from_secs(1)
+        }
     });
 
     match result {
         Ok(duration) => duration,
         Err(_) => {
             eprintln!("Panic while extracting duration from {:?}", path);
-            Duration::from_secs(180)
+            Duration::from_secs(1)
         }
     }
 }

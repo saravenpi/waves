@@ -38,6 +38,7 @@ pub struct WavesApp {
     pub file_to_play_on_start: Option<PathBuf>,
     pub default_folder_input: String,
     pub search_open: bool,
+    pub search_just_opened: bool,
     pub search_query: String,
     pub search_results: Vec<SearchResult>,
     pub search_selected: usize,
@@ -47,6 +48,14 @@ pub struct WavesApp {
     pub file_open_receiver: Receiver<PathBuf>,
     #[cfg(target_os = "macos")]
     pub menu_action_receiver: Receiver<crate::macos::MenuAction>,
+    pub sidebar_collapsed: bool,
+    pub last_folder_check: std::time::Instant,
+    pub last_folder_file_count: usize,
+    pub settings_focused_item: usize,
+    pub playback_context: SidebarView,
+    pub animation_fullscreen: bool,
+    pub last_mouse_movement: std::time::Instant,
+    pub last_animation_hover: std::time::Instant,
 }
 
 impl WavesApp {
@@ -152,6 +161,7 @@ impl WavesApp {
             file_to_play_on_start: file_to_play,
             default_folder_input,
             search_open: false,
+            search_just_opened: false,
             search_query: String::new(),
             search_results: Vec::new(),
             search_selected: 0,
@@ -161,6 +171,14 @@ impl WavesApp {
             file_open_receiver,
             #[cfg(target_os = "macos")]
             menu_action_receiver,
+            sidebar_collapsed: false,
+            last_folder_check: std::time::Instant::now(),
+            last_folder_file_count: 0,
+            settings_focused_item: 0,
+            playback_context: SidebarView::FileBrowser,
+            animation_fullscreen: false,
+            last_mouse_movement: std::time::Instant::now(),
+            last_animation_hover: std::time::Instant::now(),
         };
 
         app.update_columns();

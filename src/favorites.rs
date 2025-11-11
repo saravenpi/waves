@@ -3,6 +3,10 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 
+/// Returns the path to the favorites file.
+///
+/// Creates the ~/.waves directory if it doesn't exist.
+/// Defaults to .waves/favorites.yml in current directory as fallback.
 pub fn file_path() -> PathBuf {
     let waves_dir = if let Some(home) = dirs::home_dir() {
         home.join(".waves")
@@ -13,6 +17,9 @@ pub fn file_path() -> PathBuf {
     waves_dir.join("favorites.yml")
 }
 
+/// Loads favorites from the YAML file.
+///
+/// Returns empty vector if the file doesn't exist or cannot be parsed.
 pub fn load() -> Vec<Favorite> {
     let path = file_path();
     if let Ok(contents) = fs::read_to_string(&path) {
@@ -22,6 +29,10 @@ pub fn load() -> Vec<Favorite> {
     }
 }
 
+/// Saves favorites to the YAML file.
+///
+/// # Arguments
+/// * `favorites` - Vector of favorite items to persist
 pub fn save(favorites: &Vec<Favorite>) {
     let path = file_path();
     if let Ok(yaml) = serde_yaml::to_string(favorites) {

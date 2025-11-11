@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use std::sync::Mutex;
 use std::path::PathBuf;
 
@@ -13,7 +15,7 @@ pub static MENU_ACTION_CHANNEL: Mutex<Option<std::sync::mpsc::Sender<MenuAction>
 
 #[cfg(target_os = "macos")]
 pub fn setup_file_open_handler(sender: std::sync::mpsc::Sender<PathBuf>) {
-    use cocoa::base::{id, nil, YES};
+    use cocoa::base::{id, nil};
     use cocoa::appkit::NSApplication;
     use objc::declare::ClassDecl;
     use objc::runtime::{Class, Object, Sel};
@@ -24,9 +26,7 @@ pub fn setup_file_open_handler(sender: std::sync::mpsc::Sender<PathBuf>) {
     unsafe {
         let app: id = NSApplication::sharedApplication(nil);
 
-        // Create our delegate class that implements NSApplicationDelegate
         let delegate_class = if let Some(mut decl) = ClassDecl::new("WavesAppDelegate", class!(NSObject)) {
-            // Implement application:openFile: for single file
             extern "C" fn application_open_file(
                 _this: &Object,
                 _cmd: Sel,
@@ -56,7 +56,6 @@ pub fn setup_file_open_handler(sender: std::sync::mpsc::Sender<PathBuf>) {
                 }
             }
 
-            // Implement application:openFiles: for multiple files
             extern "C" fn application_open_files(
                 _this: &Object,
                 _cmd: Sel,
@@ -107,7 +106,6 @@ pub fn setup_file_open_handler(sender: std::sync::mpsc::Sender<PathBuf>) {
 
         let app_delegate: id = msg_send![delegate_class, new];
 
-        // Set as the application delegate
         let _: () = msg_send![app, setDelegate: app_delegate];
 
         eprintln!("WAVES: Application delegate set");
@@ -116,12 +114,11 @@ pub fn setup_file_open_handler(sender: std::sync::mpsc::Sender<PathBuf>) {
 
 #[cfg(not(target_os = "macos"))]
 pub fn setup_file_open_handler(_sender: std::sync::mpsc::Sender<PathBuf>) {
-    // No-op on non-macOS platforms
 }
 
 #[cfg(target_os = "macos")]
 pub fn setup_menu_bar(menu_action_sender: std::sync::mpsc::Sender<MenuAction>) {
-    use cocoa::appkit::{NSApp, NSApplication, NSMenu, NSMenuItem};
+    use cocoa::appkit::{NSApp, NSMenu, NSMenuItem};
     use cocoa::base::{id, nil, selector};
     use cocoa::foundation::{NSAutoreleasePool, NSString};
     use objc::declare::ClassDecl;
@@ -133,7 +130,6 @@ pub fn setup_menu_bar(menu_action_sender: std::sync::mpsc::Sender<MenuAction>) {
     unsafe {
         let _pool = NSAutoreleasePool::new(nil);
 
-        // Create menu delegate class
         let delegate_class = if let Some(mut decl) = ClassDecl::new("WavesMenuDelegate", class!(NSObject)) {
             extern "C" fn open_file(_this: &Object, _cmd: Sel, _sender: id) {
                 if let Ok(guard) = MENU_ACTION_CHANNEL.lock() {
@@ -168,14 +164,11 @@ pub fn setup_menu_bar(menu_action_sender: std::sync::mpsc::Sender<MenuAction>) {
 
         let delegate: id = msg_send![delegate_class, new];
 
-        // Get the application
         let app = NSApp();
 
-        // Create main menu bar
         let main_menu = NSMenu::new(nil);
         let _: () = msg_send![main_menu, setAutoenablesItems: false];
 
-        // Create app menu item (leftmost menu)
         let app_menu_item = NSMenuItem::new(nil);
         let _: () = msg_send![main_menu, addItem: app_menu_item];
 
@@ -195,7 +188,6 @@ pub fn setup_menu_bar(menu_action_sender: std::sync::mpsc::Sender<MenuAction>) {
         ];
         let _: () = msg_send![app_menu, addItem: quit_item];
 
-        // Create File menu
         let file_menu_item = NSMenuItem::new(nil);
         let _: () = msg_send![main_menu, addItem: file_menu_item];
 
@@ -205,7 +197,6 @@ pub fn setup_menu_bar(menu_action_sender: std::sync::mpsc::Sender<MenuAction>) {
         let _: () = msg_send![file_menu, setTitle: file_menu_title];
         let _: () = msg_send![file_menu_item, setSubmenu: file_menu];
 
-        // Add "Open File..." menu item
         let open_file_title = NSString::alloc(nil);
         let open_file_title: id = msg_send![open_file_title, initWithUTF8String: "Open File...\0".as_ptr() as *const i8];
         let open_file_action = selector("openFile:");
@@ -220,7 +211,6 @@ pub fn setup_menu_bar(menu_action_sender: std::sync::mpsc::Sender<MenuAction>) {
         let _: () = msg_send![open_file_item, setTarget: delegate];
         let _: () = msg_send![file_menu, addItem: open_file_item];
 
-        // Add "Open Folder..." menu item
         let open_folder_title = NSString::alloc(nil);
         let open_folder_title: id = msg_send![open_folder_title, initWithUTF8String: "Open Folder...\0".as_ptr() as *const i8];
         let open_folder_action = selector("openFolder:");
@@ -235,7 +225,6 @@ pub fn setup_menu_bar(menu_action_sender: std::sync::mpsc::Sender<MenuAction>) {
         let _: () = msg_send![open_folder_item, setTarget: delegate];
         let _: () = msg_send![file_menu, addItem: open_folder_item];
 
-        // Set the main menu
         let _: () = msg_send![app, setMainMenu: main_menu];
 
         eprintln!("WAVES: Menu bar configured");
@@ -244,5 +233,4 @@ pub fn setup_menu_bar(menu_action_sender: std::sync::mpsc::Sender<MenuAction>) {
 
 #[cfg(not(target_os = "macos"))]
 pub fn setup_menu_bar(_menu_action_sender: std::sync::mpsc::Sender<MenuAction>) {
-    // No-op on non-macOS platforms
 }

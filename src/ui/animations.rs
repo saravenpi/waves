@@ -50,17 +50,30 @@ impl WavesApp {
         let primary_color = self.primary_color();
 
         let center = rect.center();
-        let time = ui.input(|i| i.time) as f32;
+        let avg_magnitude: f32 = self.spectrum_bars.iter().take(16).sum::<f32>() / 16.0;
 
-        // Calculate max safe radius that fits within rect with padding
+        let is_playing = if let Ok(player) = self.player.lock() {
+            if let Some(state) = player.as_ref() {
+                !state.sink.is_paused() && !state.sink.empty()
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        let time = if is_playing {
+            ui.input(|i| i.time) as f32
+        } else {
+            0.0
+        };
+
         let max_width = rect.width() * 0.45;
         let max_height = rect.height() * 0.45;
         let max_safe_radius = max_width.min(max_height);
 
-        let avg_magnitude: f32 = self.spectrum_bars.iter().take(16).sum::<f32>() / 16.0;
         let pulse_scale = 1.0 + (avg_magnitude * 0.4);
 
-        // Rings
         let ring_count = 6;
         for ring in 0..ring_count {
             let ring_offset = ring as f32 * 0.15;
@@ -84,7 +97,6 @@ impl WavesApp {
             );
         }
 
-        // Outer waveform
         let sample_count = 64;
         let outer_base_radius = max_safe_radius * 0.65;
         let outer_max_extension = max_safe_radius * 0.35;
@@ -119,7 +131,6 @@ impl WavesApp {
         let bar_count = self.spectrum_bars.len();
         let angle_step = 2.0 * PI / bar_count as f32;
 
-        // Calculate max safe radius that fits within rect with padding
         let max_width = rect.width() * 0.45;
         let max_height = rect.height() * 0.45;
         let max_safe_radius = max_width.min(max_height);
@@ -127,7 +138,21 @@ impl WavesApp {
         let inner_radius = max_safe_radius * 0.35;
         let max_bar_length = max_safe_radius * 0.65;
 
-        let time = ui.input(|i| i.time) as f32;
+        let is_playing = if let Ok(player) = self.player.lock() {
+            if let Some(state) = player.as_ref() {
+                !state.sink.is_paused() && !state.sink.empty()
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        let time = if is_playing {
+            ui.input(|i| i.time) as f32
+        } else {
+            0.0
+        };
         let rotation = time * 0.5;
 
         for (i, &magnitude) in self.spectrum_bars.iter().enumerate() {
@@ -148,7 +173,7 @@ impl WavesApp {
 
             painter.line_segment(
                 [egui::pos2(start_x, start_y), egui::pos2(end_x, end_y)],
-                egui::Stroke::new(4.0, color),
+                egui::Stroke::new(12.0, color),
             );
         }
 

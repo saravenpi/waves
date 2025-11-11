@@ -5,6 +5,14 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use std::fs::File;
 
+/// Extracts embedded album cover art from an audio file.
+///
+/// Searches both container-level and format-level metadata for visual data.
+/// Uses symphonia for parsing multiple audio formats.
+/// # Arguments
+/// * `path` - Path to the audio file
+/// # Returns
+/// Optional byte vector containing the cover image data (JPEG or PNG)
 pub fn extract_album_cover(path: &Path) -> Option<Vec<u8>> {
     let result = std::panic::catch_unwind(|| {
         let file = match File::open(path) {

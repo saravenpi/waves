@@ -10,7 +10,6 @@ use crate::ui::helpers::{ContextMenuAction, show_confirm_prompt, show_text_promp
 use crate::ui::input::MetadataEditor;
 use crate::utils::{format_duration, truncate_text};
 use crate::metadata::{extract_metadata, save_audio_metadata};
-use crate::album_cover::extract_album_cover;
 use crate::favorites;
 use crate::file_operations::SearchResult;
 
@@ -115,6 +114,111 @@ impl eframe::App for WavesApp {
             ctx.request_repaint();
         }
 
+        if ctx.input(|i| i.pointer.is_moving()) {
+            self.last_mouse_movement = std::time::Instant::now();
+        }
+
+        if self.animation_fullscreen {
+            ctx.input(|i| {
+                for event in &i.events {
+                    if let egui::Event::Key { key, pressed: true, .. } = event {
+                        match key {
+                            egui::Key::Escape => {
+                                self.animation_fullscreen = false;
+                            }
+                            egui::Key::Space => {
+                                self.toggle_pause();
+                            }
+                            egui::Key::ArrowLeft => {
+                                match self.playback_context {
+                                    SidebarView::Favorites => self.play_previous_favorite(ctx),
+                                    _ => self.play_previous_song(ctx),
+                                }
+                            }
+                            egui::Key::ArrowRight => {
+                                match self.playback_context {
+                                    SidebarView::Favorites => self.play_next_favorite(ctx),
+                                    _ => self.play_next_song(ctx),
+                                }
+                            }
+                            egui::Key::ArrowUp => {
+                                self.volume = (self.volume + 0.05).min(1.0);
+                                if let Ok(player) = self.player.lock() {
+                                    if let Some(state) = player.as_ref() {
+                                        state.sink.set_volume(self.volume);
+                                    }
+                                }
+                            }
+                            egui::Key::ArrowDown => {
+                                self.volume = (self.volume - 0.05).max(0.0);
+                                if let Ok(player) = self.player.lock() {
+                                    if let Some(state) = player.as_ref() {
+                                        state.sink.set_volume(self.volume);
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            });
+
+            let opacity = (self.config.window_opacity / 100.0 * 255.0) as u8;
+            let bg_color = egui::Color32::from_rgba_unmultiplied(0, 0, 0, opacity);
+
+            egui::CentralPanel::default()
+                .frame(egui::Frame::none().fill(bg_color))
+                .show(ctx, |ui| {
+                    let fullscreen_rect = ui.max_rect();
+                    self.render_animation(ui, fullscreen_rect);
+
+                    let mouse_idle_duration = self.last_mouse_movement.elapsed().as_secs_f32();
+                    let fade_duration = 2.0;
+                    let alpha = if mouse_idle_duration < fade_duration {
+                        (1.0 - (mouse_idle_duration / fade_duration)).clamp(0.0, 1.0)
+                    } else {
+                        0.0
+                    };
+
+                    if alpha > 0.01 {
+                        let button_size = egui::vec2(50.0, 50.0);
+                        let button_pos = egui::pos2(
+                            fullscreen_rect.max.x - button_size.x - 20.0,
+                            fullscreen_rect.max.y - button_size.y - 20.0,
+                        );
+                        let button_rect = egui::Rect::from_min_size(button_pos, button_size);
+
+                        let button_id = egui::Id::new("exit_fullscreen_btn");
+                        let button_response = ui.interact(button_rect, button_id, egui::Sense::click());
+
+                        let icon_alpha = (alpha * 255.0) as u8;
+
+                        if button_response.hovered() {
+                            ui.painter().rect_stroke(
+                                button_rect,
+                                0.0,
+                                egui::Stroke::new(2.0, egui::Color32::from_rgba_unmultiplied(255, 255, 255, icon_alpha)),
+                            );
+                        }
+
+                        ui.painter().text(
+                            button_rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            "×",
+                            egui::FontId::proportional(32.0),
+                            egui::Color32::from_rgba_unmultiplied(255, 255, 255, icon_alpha),
+                        );
+
+                        if button_response.clicked() {
+                            self.animation_fullscreen = false;
+                        }
+                    }
+                });
+
+            ctx.request_repaint();
+            return;
+        }
+
         ctx.input(|i| {
             for event in &i.events {
                 if let egui::Event::Key { key, pressed: true, modifiers, .. } = event {
@@ -125,7 +229,9 @@ impl eframe::App for WavesApp {
 
                     if *key == egui::Key::F && (modifiers.command || modifiers.ctrl) {
                         self.search_open = !self.search_open;
-                        if !self.search_open {
+                        if self.search_open {
+                            self.search_just_opened = true;
+                        } else {
                             self.search_query.clear();
                             self.search_results.clear();
                         }
@@ -164,6 +270,19 @@ impl eframe::App for WavesApp {
             }
         });
 
+        let now = std::time::Instant::now();
+        if now.duration_since(self.last_folder_check).as_secs() >= 2 {
+            self.last_folder_check = now;
+
+            if let Ok(entries) = std::fs::read_dir(&self.current_dir) {
+                let current_count = entries.count();
+                if current_count != self.last_folder_file_count {
+                    self.last_folder_file_count = current_count;
+                    self.update_columns();
+                }
+            }
+        }
+
         let (is_playing, is_empty, is_paused) = {
             let player = self.player.lock().unwrap();
             if let Some(state) = player.as_ref() {
@@ -176,7 +295,6 @@ impl eframe::App for WavesApp {
         if is_playing {
             if is_empty {
                 if self.loop_enabled {
-                    // Replay the current song
                     let current_file = self.player.lock().unwrap()
                         .as_ref()
                         .map(|state| state.current_file.clone());
@@ -184,7 +302,10 @@ impl eframe::App for WavesApp {
                         self.play_file(&file, ctx);
                     }
                 } else {
-                    self.play_next_song(ctx);
+                    match self.playback_context {
+                        SidebarView::Favorites => self.play_next_favorite(ctx),
+                        _ => self.play_next_song(ctx),
+                    }
                 }
             } else if !is_paused {
                 let (audio_buffer, sample_rate, channels) = {
@@ -248,14 +369,101 @@ impl eframe::App for WavesApp {
 
         let opacity_alpha = (self.config.window_opacity * 2.40).min(240.0) as u8;
 
-        sidebar_panel
-            .resizable(false)
-            .exact_width(500.0)
-            .frame(egui::Frame::default()
-                .fill(egui::Color32::from_black_alpha(opacity_alpha))
-                .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
-                .inner_margin(egui::Margin::same(10.0)))
+        let sidebar_panel_configured = if self.sidebar_collapsed {
+            sidebar_panel
+                .resizable(false)
+                .exact_width(40.0)
+                .frame(egui::Frame::default()
+                    .fill(egui::Color32::from_black_alpha(opacity_alpha))
+                    .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    .inner_margin(egui::Margin::same(5.0)))
+        } else {
+            sidebar_panel
+                .resizable(true)
+                .default_width(self.config.sidebar_width)
+                .width_range(250.0..=800.0)
+                .frame(egui::Frame::default()
+                    .fill(egui::Color32::from_black_alpha(opacity_alpha))
+                    .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    .inner_margin(egui::Margin::same(10.0)))
+        };
+
+        let sidebar_response = sidebar_panel_configured
             .show(ctx, |ui| {
+                let is_left_sidebar = matches!(self.config.sidebar_position, SidebarPosition::Left);
+                let expand_arrow = if is_left_sidebar { "▶" } else { "◀" };
+                let collapse_arrow = if is_left_sidebar { "◀" } else { "▶" };
+
+                if self.sidebar_collapsed {
+                    ui.vertical_centered(|ui| {
+                        ui.add_space(10.0);
+                        let expand_button = egui::Button::new(
+                            egui::RichText::new(expand_arrow).size(20.0).color(egui::Color32::WHITE)
+                        )
+                        .fill(egui::Color32::TRANSPARENT)
+                        .stroke(egui::Stroke::NONE)
+                        .min_size(egui::vec2(30.0, 30.0));
+
+                        let expand_response = ui.add(expand_button);
+                        expand_response.surrender_focus();
+
+                        if expand_response.hovered() {
+                            ui.painter().rect_stroke(
+                                expand_response.rect,
+                                0.0,
+                                egui::Stroke::new(1.0, egui::Color32::from_rgb(150, 150, 150))
+                            );
+                        }
+
+                        if expand_response.is_pointer_button_down_on() {
+                            ui.painter().rect_filled(
+                                expand_response.rect,
+                                0.0,
+                                egui::Color32::from_rgb(60, 60, 60)
+                            );
+                            ui.painter().text(
+                                expand_response.rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                expand_arrow,
+                                egui::FontId::proportional(20.0),
+                                egui::Color32::WHITE,
+                            );
+                        }
+
+                        if expand_response.clicked() {
+                            self.sidebar_collapsed = false;
+                        }
+                    });
+                    return;
+                }
+
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                        let collapse_button = egui::Button::new(
+                            egui::RichText::new(collapse_arrow).size(20.0).color(egui::Color32::WHITE)
+                        )
+                        .fill(egui::Color32::TRANSPARENT)
+                        .stroke(egui::Stroke::NONE)
+                        .min_size(egui::vec2(30.0, 30.0));
+
+                        let collapse_response = ui.add(collapse_button);
+                        collapse_response.surrender_focus();
+
+                        if collapse_response.hovered() {
+                            ui.painter().rect_stroke(
+                                collapse_response.rect,
+                                0.0,
+                                egui::Stroke::new(1.0, egui::Color32::from_rgb(150, 150, 150))
+                            );
+                        }
+
+                        if collapse_response.clicked() {
+                            self.sidebar_collapsed = true;
+                        }
+                    });
+                });
+
+                ui.add_space(5.0);
                 let full_height = ui.available_height();
                 let metadata_height = 200.0;
                 let browser_height = full_height - metadata_height - 20.0;
@@ -272,54 +480,59 @@ impl eframe::App for WavesApp {
                             .and_then(|n| n.to_str())
                             .unwrap_or("/");
 
-                        ui.horizontal(|ui| {
-                            ui.add_space(2.0);
-
-                            // Only show back button if not at root directory
-                            let at_root = self.current_dir == self.root_dir;
-                            if !at_root {
-                                let back_button = egui::Button::new(
-                                    egui::RichText::new("<")
-                                        .size(14.0)
-                                        .color(egui::Color32::from_rgb(150, 150, 150))
-                                )
-                                .fill(egui::Color32::TRANSPARENT)
-                                .stroke(egui::Stroke::NONE);
-
-                                if ui.add(back_button).clicked() {
-                                    back_button_clicked = true;
-                                }
-
-                                ui.add_space(5.0);
-                            }
-                            ui.label(
-                                egui::RichText::new(folder_name)
-                                    .size(14.0)
-                                    .color(egui::Color32::from_rgb(150, 150, 150))
-                            );
-
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.allocate_ui_with_layout(
+                            egui::vec2(ui.available_width(), 30.0),
+                            egui::Layout::left_to_right(egui::Align::Center),
+                            |ui| {
                                 ui.add_space(2.0);
 
-                                // Add spacing before the separator
+                                let at_root = self.current_dir == self.root_dir;
+                                if !at_root {
+                                    let back_button = egui::Button::new(
+                                        egui::RichText::new("<")
+                                            .size(14.0)
+                                            .color(egui::Color32::from_rgb(150, 150, 150))
+                                    )
+                                    .fill(egui::Color32::TRANSPARENT)
+                                    .stroke(egui::Stroke::NONE)
+                                    .frame(false);
+
+                                    if ui.add(back_button).clicked() {
+                                        back_button_clicked = true;
+                                    }
+
+                                    ui.add_space(5.0);
+                                }
+                                ui.label(
+                                    egui::RichText::new(folder_name)
+                                        .size(14.0)
+                                        .color(egui::Color32::from_rgb(150, 150, 150))
+                                );
+
+                                let mut search_clicked = false;
+
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                ui.add_space(2.0);
+
                                 ui.add_space(5.0);
 
-                                // Search button with custom styling
                                 let search_button = egui::Button::new(
                                     egui::RichText::new("🔍")
                                         .size(18.0)
-                                        .color(egui::Color32::from_rgb(150, 150, 150))
                                 )
                                 .fill(egui::Color32::TRANSPARENT)
                                 .stroke(egui::Stroke::NONE)
                                 .min_size(egui::vec2(45.0, 30.0));
 
-                                if ui.add(search_button).clicked() {
-                                    self.search_open = !self.search_open;
-                                    if !self.search_open {
-                                        self.search_query.clear();
-                                        self.search_results.clear();
-                                    }
+                                let search_response = ui.add(search_button);
+
+                                if search_response.hovered() {
+                                    let rect = search_response.rect;
+                                    ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
+                                }
+
+                                if search_response.clicked() {
+                                    search_clicked = true;
                                 }
 
                                 ui.add_space(5.0);
@@ -331,6 +544,16 @@ impl eframe::App for WavesApp {
                                 };
                                 ui.label(egui::RichText::new(section_text).size(14.0).color(egui::Color32::from_rgb(150, 150, 150)));
                             });
+
+                            if search_clicked {
+                                self.search_open = !self.search_open;
+                                if self.search_open {
+                                    self.search_just_opened = true;
+                                } else {
+                                    self.search_query.clear();
+                                    self.search_results.clear();
+                                }
+                            }
                         });
                         ui.add_space(5.0);
                         ui.separator();
@@ -376,7 +599,6 @@ impl eframe::App for WavesApp {
                                             clicked_entry = Some((idx, entry.clone()));
                                         }
 
-                                        // Right-click for context menu
                                         if response.secondary_clicked() {
                                             if let Some(pos) = response.interact_pointer_pos() {
                                                 context_menu_event = Some((entry.path.clone(), pos));
@@ -487,7 +709,6 @@ impl eframe::App for WavesApp {
                                                 clicked_favorite = Some(idx);
                                             }
 
-                                            // Right-click for context menu
                                             if response.secondary_clicked() {
                                                 if let Some(pos) = response.interact_pointer_pos() {
                                                     context_menu_event = Some((fav.path.clone(), pos));
@@ -560,6 +781,7 @@ impl eframe::App for WavesApp {
                                             self.update_columns_with_selection(Some(0));
                                             self.sidebar_view = SidebarView::FileBrowser;
                                         } else {
+                                            self.playback_context = SidebarView::Favorites;
                                             self.play_file(&fav.path, ctx);
                                         }
                                     }
@@ -576,128 +798,467 @@ impl eframe::App for WavesApp {
                                     .show(ui, |ui| {
                                         ui.add_space(10.0);
 
-                                        // Primary Color
-                                        ui.label(egui::RichText::new("Primary Color").size(16.0).color(egui::Color32::WHITE));
-                                        ui.add_space(5.0);
+                                        let is_focused = self.settings_focused_item == 0;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
+                                            ui.label(egui::RichText::new("Primary Color").size(16.0).color(egui::Color32::WHITE));
+                                            ui.add_space(5.0);
 
-                                        let preset_colors = vec![
-                                            ("#9664FF", egui::Color32::from_rgb(150, 100, 255)),
-                                            ("#4A90E2", egui::Color32::from_rgb(74, 144, 226)),
-                                            ("#50E3C2", egui::Color32::from_rgb(80, 227, 194)),
-                                            ("#FF6B9D", egui::Color32::from_rgb(255, 107, 157)),
-                                            ("#FF8A00", egui::Color32::from_rgb(255, 138, 0)),
-                                            ("#FF4444", egui::Color32::from_rgb(255, 68, 68)),
-                                        ];
+                                            let preset_colors = vec![
+                                                ("#9664FF", egui::Color32::from_rgb(150, 100, 255)),
+                                                ("#4A90E2", egui::Color32::from_rgb(74, 144, 226)),
+                                                ("#50E3C2", egui::Color32::from_rgb(80, 227, 194)),
+                                                ("#FF6B9D", egui::Color32::from_rgb(255, 107, 157)),
+                                                ("#FF8A00", egui::Color32::from_rgb(255, 138, 0)),
+                                                ("#FF4444", egui::Color32::from_rgb(255, 68, 68)),
+                                            ];
 
-                                        ui.horizontal(|ui| {
-                                            for (hex, color) in preset_colors {
-                                                let size = egui::vec2(30.0, 30.0);
-                                                let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
+                                            ui.horizontal(|ui| {
+                                                for (hex, color) in preset_colors {
+                                                    let size = egui::vec2(30.0, 30.0);
+                                                    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
 
-                                                let is_selected = self.config.primary_color.to_lowercase() == hex.to_lowercase();
+                                                    let is_selected = self.config.primary_color.to_lowercase() == hex.to_lowercase();
 
-                                                if is_selected {
-                                                    ui.painter().rect_stroke(
-                                                        rect.expand(3.0),
-                                                        2.0,
-                                                        egui::Stroke::new(2.0, egui::Color32::WHITE),
-                                                    );
+                                                    if is_selected {
+                                                        ui.painter().rect_stroke(
+                                                            rect.expand(3.0),
+                                                            0.0,
+                                                            egui::Stroke::new(2.0, egui::Color32::WHITE),
+                                                        );
+                                                    }
+
+                                                    ui.painter().rect_filled(rect, 0.0, color);
+
+                                                    if response.clicked() {
+                                                        self.config.primary_color = hex.to_string();
+                                                        let _ = self.config.save();
+                                                    }
+                                                }
+                                            });
+                                        });
+                                        ui.add_space(15.0);
+
+                                        let is_focused = self.settings_focused_item == 1;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
+                                            ui.label(egui::RichText::new("Window Opacity").size(16.0).color(egui::Color32::WHITE));
+                                            ui.add_space(5.0);
+
+                                            let mut opacity = self.config.window_opacity;
+                                            let slider_height = 6.0;
+                                            let slider_width = ui.available_width() - 60.0;
+
+                                            ui.horizontal(|ui| {
+                                                let (rect, response) = ui.allocate_exact_size(
+                                                    egui::vec2(slider_width, slider_height),
+                                                    egui::Sense::click_and_drag()
+                                                );
+
+                                                let painter = ui.painter();
+
+                                                painter.rect_filled(
+                                                    rect,
+                                                    0.0,
+                                                    egui::Color32::from_rgb(40, 40, 40),
+                                                );
+
+                                                let fill_width = slider_width * (opacity / 100.0);
+                                                let fill_rect = egui::Rect::from_min_size(
+                                                    rect.min,
+                                                    egui::vec2(fill_width, slider_height),
+                                                );
+                                                painter.rect_filled(
+                                                    fill_rect,
+                                                    0.0,
+                                                    self.primary_color(),
+                                                );
+
+                                                if response.dragged() || response.clicked() {
+                                                    if let Some(pos) = response.interact_pointer_pos() {
+                                                        let relative_x = (pos.x - rect.min.x).max(0.0).min(slider_width);
+                                                        opacity = ((relative_x / slider_width) * 100.0).clamp(0.0, 100.0);
+                                                    }
                                                 }
 
-                                                ui.painter().rect_filled(rect, 4.0, color);
+                                                ui.label(egui::RichText::new(format!("{:.0}%", opacity)).size(14.0).color(egui::Color32::WHITE));
+                                            });
 
-                                                if response.clicked() {
-                                                    self.config.primary_color = hex.to_string();
-                                                    let _ = self.config.save();
-                                                }
+                                            if opacity != self.config.window_opacity {
+                                                self.config.window_opacity = opacity;
+                                                let _ = self.config.save();
                                             }
                                         });
                                         ui.add_space(15.0);
 
-                                        // Window Opacity
-                                        ui.label(egui::RichText::new("Window Opacity").size(16.0).color(egui::Color32::WHITE));
-                                        ui.add_space(5.0);
-                                        let mut opacity = self.config.window_opacity;
-                                        if ui.add(egui::Slider::new(&mut opacity, 0.0..=100.0).text("%")).changed() {
-                                            self.config.window_opacity = opacity;
-                                            let _ = self.config.save();
-                                        }
+                                        ui.separator();
                                         ui.add_space(15.0);
 
-                                        // Show Status Bar
-                                        ui.label(egui::RichText::new("Show Status Bar").size(16.0).color(egui::Color32::WHITE));
-                                        ui.add_space(5.0);
-                                        let mut show_status = self.config.show_status_bar;
-                                        if ui.checkbox(&mut show_status, "").changed() {
-                                            self.config.show_status_bar = show_status;
-                                            let _ = self.config.save();
-                                        }
-                                        ui.add_space(15.0);
-
-                                        // Animation
-                                        ui.label(egui::RichText::new("Visual Animation").size(16.0).color(egui::Color32::WHITE));
-                                        ui.add_space(5.0);
-                                        let mut animation = self.config.animation;
-                                        if ui.checkbox(&mut animation, "Enable Animation").changed() {
-                                            self.config.animation = animation;
-                                            let _ = self.config.save();
-                                        }
-                                        ui.add_space(10.0);
-
-                                        // Animation Type
-                                        if self.config.animation {
-                                            ui.label(egui::RichText::new("Animation Style").size(14.0).color(egui::Color32::from_rgb(200, 200, 200)));
-                                            ui.add_space(5.0);
+                                        let is_focused = self.settings_focused_item == 2;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
                                             ui.horizontal(|ui| {
-                                                use crate::config::AnimationType;
-                                                for anim_type in AnimationType::all() {
-                                                    let is_selected = self.config.animation_type == anim_type;
-                                                    if ui.selectable_label(is_selected, anim_type.display_name()).clicked() {
-                                                        self.config.animation_type = anim_type;
+                                                ui.label(egui::RichText::new("Show Status Bar").size(16.0).color(egui::Color32::WHITE));
+
+                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                    let toggle_width = 50.0;
+                                                    let toggle_height = 25.0;
+                                                    let (rect, response) = ui.allocate_exact_size(
+                                                        egui::vec2(toggle_width, toggle_height),
+                                                        egui::Sense::click()
+                                                    );
+
+                                                    if response.clicked() {
+                                                        self.config.show_status_bar = !self.config.show_status_bar;
                                                         let _ = self.config.save();
                                                     }
+
+                                                    let bg_color = if self.config.show_status_bar {
+                                                        self.primary_color()
+                                                    } else {
+                                                        egui::Color32::from_rgb(60, 60, 60)
+                                                    };
+
+                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+
+                                                    let square_size = 20.0;
+                                                    let square_x = if self.config.show_status_bar {
+                                                        rect.max.x - square_size - 2.5
+                                                    } else {
+                                                        rect.min.x + 2.5
+                                                    };
+                                                    let square_rect = egui::Rect::from_min_size(
+                                                        egui::pos2(square_x, rect.center().y - square_size / 2.0),
+                                                        egui::vec2(square_size, square_size)
+                                                    );
+                                                    ui.painter().rect_filled(square_rect, 0.0, egui::Color32::WHITE);
+                                                });
+                                            });
+                                        });
+                                        ui.add_space(15.0);
+
+                                        let is_focused = self.settings_focused_item == 3;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
+                                            ui.horizontal(|ui| {
+                                                ui.label(egui::RichText::new("Visual Animation").size(16.0).color(egui::Color32::WHITE));
+
+                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                    let toggle_width = 50.0;
+                                                    let toggle_height = 25.0;
+                                                    let (rect, response) = ui.allocate_exact_size(
+                                                        egui::vec2(toggle_width, toggle_height),
+                                                        egui::Sense::click()
+                                                    );
+
+                                                    if response.clicked() {
+                                                        self.config.animation = !self.config.animation;
+                                                        let _ = self.config.save();
+                                                    }
+
+                                                    let bg_color = if self.config.animation {
+                                                        self.primary_color()
+                                                    } else {
+                                                        egui::Color32::from_rgb(60, 60, 60)
+                                                    };
+
+                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+
+                                                    let square_size = 20.0;
+                                                    let square_x = if self.config.animation {
+                                                        rect.max.x - square_size - 2.5
+                                                    } else {
+                                                        rect.min.x + 2.5
+                                                    };
+                                                    let square_rect = egui::Rect::from_min_size(
+                                                        egui::pos2(square_x, rect.center().y - square_size / 2.0),
+                                                        egui::vec2(square_size, square_size)
+                                                    );
+                                                    ui.painter().rect_filled(square_rect, 0.0, egui::Color32::WHITE);
+                                                });
+                                            });
+                                        });
+                                        ui.add_space(10.0);
+
+                                        if self.config.animation {
+                                            let is_focused = self.settings_focused_item == 4;
+                                            let frame = if is_focused {
+                                                egui::Frame::default()
+                                                    .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                    .inner_margin(egui::Margin::same(8.0))
+                                                    .rounding(0.0)
+                                            } else {
+                                                egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                            };
+                                            frame.show(ui, |ui| {
+                                                ui.label(egui::RichText::new("Animation Style").size(14.0).color(egui::Color32::from_rgb(200, 200, 200)));
+                                                ui.add_space(5.0);
+                                                ui.horizontal(|ui| {
+                                                    use crate::config::AnimationType;
+                                                    for anim_type in AnimationType::all() {
+                                                        let is_selected = self.config.animation_type == anim_type;
+
+                                                        let button_text = anim_type.display_name();
+                                                        let text_color = if is_selected {
+                                                            egui::Color32::BLACK
+                                                        } else {
+                                                            egui::Color32::WHITE
+                                                        };
+                                                        let bg_color = if is_selected {
+                                                            egui::Color32::WHITE
+                                                        } else {
+                                                            egui::Color32::TRANSPARENT
+                                                        };
+
+                                                        let button = egui::Button::new(egui::RichText::new(button_text).color(text_color))
+                                                            .fill(bg_color)
+                                                            .stroke(egui::Stroke::NONE);
+
+                                                        if ui.add(button).clicked() {
+                                                            self.config.animation_type = anim_type;
+                                                            let _ = self.config.save();
+                                                        }
+                                                    }
+                                                });
+                                            });
+                                        }
+                                        ui.add_space(15.0);
+
+                                        ui.separator();
+                                        ui.add_space(15.0);
+
+                                        let is_focused = self.settings_focused_item == 5;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
+                                            ui.label(egui::RichText::new("Sidebar Position").size(16.0).color(egui::Color32::WHITE));
+                                            ui.add_space(5.0);
+                                            ui.horizontal(|ui| {
+                                                let is_left = matches!(self.config.sidebar_position, SidebarPosition::Left);
+
+                                                let left_text_color = if is_left {
+                                                    egui::Color32::BLACK
+                                                } else {
+                                                    egui::Color32::WHITE
+                                                };
+                                                let left_bg_color = if is_left {
+                                                    egui::Color32::WHITE
+                                                } else {
+                                                    egui::Color32::TRANSPARENT
+                                                };
+
+                                                let left_button = egui::Button::new(egui::RichText::new("Left").color(left_text_color))
+                                                    .fill(left_bg_color)
+                                                    .stroke(egui::Stroke::NONE);
+
+                                                if ui.add(left_button).clicked() {
+                                                    self.config.sidebar_position = SidebarPosition::Left;
+                                                    let _ = self.config.save();
+                                                }
+
+                                                let right_text_color = if !is_left {
+                                                    egui::Color32::BLACK
+                                                } else {
+                                                    egui::Color32::WHITE
+                                                };
+                                                let right_bg_color = if !is_left {
+                                                    egui::Color32::WHITE
+                                                } else {
+                                                    egui::Color32::TRANSPARENT
+                                                };
+
+                                                let right_button = egui::Button::new(egui::RichText::new("Right").color(right_text_color))
+                                                    .fill(right_bg_color)
+                                                    .stroke(egui::Stroke::NONE);
+
+                                                if ui.add(right_button).clicked() {
+                                                    self.config.sidebar_position = SidebarPosition::Right;
+                                                    let _ = self.config.save();
+                                                }
+                                            });
+                                        });
+                                        ui.add_space(15.0);
+
+                                        ui.separator();
+                                        ui.add_space(15.0);
+
+                                        let is_focused = self.settings_focused_item == 6;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
+                                            ui.horizontal(|ui| {
+                                                ui.label(egui::RichText::new("UI Sounds").size(16.0).color(egui::Color32::WHITE));
+
+                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                    let toggle_width = 50.0;
+                                                    let toggle_height = 25.0;
+                                                    let (rect, response) = ui.allocate_exact_size(
+                                                        egui::vec2(toggle_width, toggle_height),
+                                                        egui::Sense::click()
+                                                    );
+
+                                                    if response.clicked() {
+                                                        self.config.ui_sounds_enabled = !self.config.ui_sounds_enabled;
+                                                        let _ = self.config.save();
+                                                    }
+
+                                                    let bg_color = if self.config.ui_sounds_enabled {
+                                                        self.primary_color()
+                                                    } else {
+                                                        egui::Color32::from_rgb(60, 60, 60)
+                                                    };
+
+                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+
+                                                    let square_size = 20.0;
+                                                    let square_x = if self.config.ui_sounds_enabled {
+                                                        rect.max.x - square_size - 2.5
+                                                    } else {
+                                                        rect.min.x + 2.5
+                                                    };
+                                                    let square_rect = egui::Rect::from_min_size(
+                                                        egui::pos2(square_x, rect.center().y - square_size / 2.0),
+                                                        egui::vec2(square_size, square_size)
+                                                    );
+                                                    ui.painter().rect_filled(square_rect, 0.0, egui::Color32::WHITE);
+                                                });
+                                            });
+                                        });
+                                        ui.add_space(10.0);
+
+                                        if self.config.ui_sounds_enabled {
+                                            let is_focused = self.settings_focused_item == 7;
+                                            let frame = if is_focused {
+                                                egui::Frame::default()
+                                                    .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                    .inner_margin(egui::Margin::same(8.0))
+                                                    .rounding(0.0)
+                                            } else {
+                                                egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                            };
+                                            frame.show(ui, |ui| {
+                                                ui.label(egui::RichText::new("Sound Volume").size(14.0).color(egui::Color32::from_rgb(200, 200, 200)));
+                                                ui.add_space(5.0);
+
+                                                let mut ui_volume = self.config.ui_sounds_volume;
+                                                let slider_height = 6.0;
+                                                let slider_width = ui.available_width() - 80.0;
+
+                                                ui.horizontal(|ui| {
+                                                    let (rect, response) = ui.allocate_exact_size(
+                                                        egui::vec2(slider_width, slider_height),
+                                                        egui::Sense::click_and_drag()
+                                                    );
+
+                                                    let painter = ui.painter();
+
+                                                    painter.rect_filled(
+                                                        rect,
+                                                        0.0,
+                                                        egui::Color32::from_rgb(40, 40, 40),
+                                                    );
+
+                                                    let fill_width = slider_width * ui_volume;
+                                                    let fill_rect = egui::Rect::from_min_size(
+                                                        rect.min,
+                                                        egui::vec2(fill_width, slider_height),
+                                                    );
+                                                    painter.rect_filled(
+                                                        fill_rect,
+                                                        0.0,
+                                                        self.primary_color(),
+                                                    );
+
+                                                    if response.dragged() || response.clicked() {
+                                                        if let Some(pos) = response.interact_pointer_pos() {
+                                                            let relative_x = (pos.x - rect.min.x).max(0.0).min(slider_width);
+                                                            ui_volume = (relative_x / slider_width).clamp(0.0, 1.0);
+                                                        }
+                                                    }
+
+                                                    ui.label(egui::RichText::new(format!("{:.0}%", ui_volume * 100.0)).size(14.0).color(egui::Color32::WHITE));
+                                                });
+
+                                                if ui_volume != self.config.ui_sounds_volume {
+                                                    self.config.ui_sounds_volume = ui_volume;
+                                                    let _ = self.config.save();
                                                 }
                                             });
                                         }
                                         ui.add_space(15.0);
 
-                                        // Sidebar Position
-                                        ui.label(egui::RichText::new("Sidebar Position").size(16.0).color(egui::Color32::WHITE));
-                                        ui.add_space(5.0);
-                                        ui.horizontal(|ui| {
-                                            let is_left = matches!(self.config.sidebar_position, SidebarPosition::Left);
-                                            if ui.selectable_label(is_left, "Left").clicked() {
-                                                self.config.sidebar_position = SidebarPosition::Left;
-                                                let _ = self.config.save();
-                                            }
-                                            if ui.selectable_label(!is_left, "Right").clicked() {
-                                                self.config.sidebar_position = SidebarPosition::Right;
-                                                let _ = self.config.save();
-                                            }
-                                        });
+                                        ui.separator();
                                         ui.add_space(15.0);
 
-                                        // Default Folder
-                                        ui.label(egui::RichText::new("Default Folder").size(16.0).color(egui::Color32::WHITE));
-                                        ui.add_space(5.0);
-                                        ui.horizontal(|ui| {
-                                            let text_edit = egui::TextEdit::singleline(&mut self.default_folder_input)
-                                                .desired_width(300.0)
-                                                .hint_text("~/Music");
-                                            if ui.add(text_edit).changed() {
-                                                // Update on change
-                                            }
-                                            if ui.button("Save").clicked() {
-                                                let trimmed = self.default_folder_input.trim();
-                                                if !trimmed.is_empty() {
-                                                    self.config.default_folder = Some(trimmed.to_string());
-                                                } else {
-                                                    self.config.default_folder = None;
+                                        let is_focused = self.settings_focused_item == 8;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
+                                            ui.label(egui::RichText::new("Default Folder").size(16.0).color(egui::Color32::WHITE));
+                                            ui.add_space(5.0);
+                                            ui.horizontal(|ui| {
+                                                let text_edit = egui::TextEdit::singleline(&mut self.default_folder_input)
+                                                    .desired_width(300.0)
+                                                    .hint_text("~/Music");
+                                                ui.add(text_edit);
+                                                if ui.button("Save").clicked() {
+                                                    let trimmed = self.default_folder_input.trim();
+                                                    if !trimmed.is_empty() {
+                                                        self.config.default_folder = Some(trimmed.to_string());
+                                                    } else {
+                                                        self.config.default_folder = None;
+                                                    }
+                                                    let _ = self.config.save();
                                                 }
-                                                let _ = self.config.save();
-                                            }
+                                            });
+                                            ui.label(egui::RichText::new("Use ~ for home directory (e.g., ~/Music)").size(12.0).color(egui::Color32::from_rgb(140, 140, 140)));
                                         });
-                                        ui.label(egui::RichText::new("Use ~ for home directory (e.g., ~/Music)").size(12.0).color(egui::Color32::from_rgb(140, 140, 140)));
                                         ui.add_space(30.0);
                                     });
                             }
@@ -712,6 +1273,7 @@ impl eframe::App for WavesApp {
                         self.current_dir = entry.path.clone();
                         self.update_columns_with_selection(Some(0));
                     } else {
+                        self.playback_context = SidebarView::FileBrowser;
                         self.play_file(&entry.path, ctx);
                     }
                 }
@@ -729,172 +1291,15 @@ impl eframe::App for WavesApp {
                     }
                 }
 
-                ui.add_space(10.0);
-                ui.separator();
-                ui.add_space(10.0);
-
-                let selected_file_info = if !self.columns.is_empty() && !self.columns[0].entries.is_empty() {
-                    let selected_idx = self.columns[0].selected;
-                    if let Some(entry) = self.columns[0].entries.get(selected_idx) {
-                        if !entry.is_dir {
-                            let ext = entry.path.extension().and_then(|s| s.to_str()).unwrap_or("");
-                            if matches!(ext, "mp3" | "wav" | "flac" | "ogg" | "m4a") {
-                                let (title, artist, album, date, track, duration) = extract_metadata(&entry.path);
-                                Some((title, artist, album, date, track, duration, entry.path.clone()))
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                if let Some((title, artist, album, date, _track, duration, path)) = selected_file_info {
-                    if self.last_selected_file.as_ref() != Some(&path) {
-                        self.last_selected_file = Some(path.clone());
-
-                        if !self.album_cover_cache.contains_key(&path) {
-                            let path_clone = path.clone();
-                            let sender = self.album_cover_sender.clone();
-                            std::thread::spawn(move || {
-                                if let Some(cover_data) = extract_album_cover(&path_clone) {
-                                    if let Ok(img) = image::load_from_memory(&cover_data) {
-                                        let size = [img.width() as usize, img.height() as usize];
-                                        let rgba = img.to_rgba8();
-                                        let pixels = rgba.as_flat_samples();
-                                        let color_image = egui::ColorImage::from_rgba_unmultiplied(
-                                            size,
-                                            pixels.as_slice()
-                                        );
-                                        let _ = sender.send((path_clone, color_image));
-                                    }
-                                }
-                            });
-                        }
-                    }
-
-                    let album_cover = if current_playing_file.as_ref() == Some(&path) {
-                        let player = self.player.lock().unwrap();
-                        player.as_ref().and_then(|state| state.album_cover.clone())
-                    } else {
-                        self.album_cover_cache.get(&path).cloned()
-                    };
-
-                    ui.vertical(|ui| {
-                        ui.horizontal(|ui| {
-                            ui.add_space(ui.available_width() - 45.0);
-                            let edit_button = egui::Button::new(
-                                egui::RichText::new("✏")
-                                    .size(18.0)
-                                    .color(egui::Color32::from_rgb(150, 150, 150))
-                            )
-                            .fill(egui::Color32::TRANSPARENT)
-                            .stroke(egui::Stroke::NONE)
-                            .min_size(egui::vec2(45.0, 30.0));
-
-                            if ui.add(edit_button).clicked() {
-                                self.metadata_editor = Some(MetadataEditor {
-                                    file_path: path.clone(),
-                                    title: title.clone(),
-                                    artist: artist.clone().unwrap_or_default(),
-                                    date: date.clone().unwrap_or_default(),
-                                    cover_path: None,
-                                    just_opened: true,
-                                    error_message: None,
-                                });
-                            }
-                        });
-
-                        ui.horizontal(|ui| {
-                            let cover_size = 140.0;
-                            let (rect, _) = ui.allocate_exact_size(
-                                egui::vec2(cover_size, cover_size),
-                                egui::Sense::hover()
-                            );
-
-                            if let Some(texture) = &album_cover {
-                                ui.painter().image(
-                                    texture.id(),
-                                    rect,
-                                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                                    egui::Color32::WHITE
-                                );
-                            } else {
-                                ui.painter().rect_stroke(
-                                    rect,
-                                    4.0,
-                                    egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 100, 100))
-                                );
-
-                                ui.painter().text(
-                                    rect.center(),
-                                    egui::Align2::CENTER_CENTER,
-                                    "No cover",
-                                    egui::FontId::proportional(14.0),
-                                    egui::Color32::from_rgb(120, 120, 120)
-                                );
-                            }
-
-                            ui.add_space(10.0);
-
-                            ui.vertical(|ui| {
-                                ui.add_space(10.0);
-                                ui.label(
-                                    egui::RichText::new(truncate_text(&title, 20))
-                                        .size(16.0)
-                                        .color(egui::Color32::WHITE)
-                                        .strong()
-                                );
-
-                                if let Some(artist_name) = &artist {
-                                    ui.label(
-                                        egui::RichText::new(truncate_text(artist_name, 20))
-                                            .size(13.0)
-                                            .color(egui::Color32::from_rgb(180, 180, 180))
-                                    );
-                                }
-
-                                if let Some(album_name) = &album {
-                                    ui.label(
-                                        egui::RichText::new(truncate_text(album_name, 20))
-                                            .size(12.0)
-                                            .color(egui::Color32::from_rgb(140, 140, 140))
-                                    );
-                                }
-
-                                ui.add_space(5.0);
-                                ui.label(
-                                    egui::RichText::new(format_duration(duration))
-                                        .size(13.0)
-                                        .color(egui::Color32::from_rgb(140, 140, 140))
-                                );
-
-                                if let Some(date_info) = &date {
-                                    ui.label(
-                                        egui::RichText::new(date_info)
-                                            .size(11.0)
-                                            .color(egui::Color32::from_rgb(120, 120, 120))
-                                    );
-                                }
-                            });
-                        });
-                    });
-                } else {
-                    ui.vertical_centered(|ui| {
-                        ui.add_space(60.0);
-                        ui.label(
-                            egui::RichText::new("No file selected")
-                                .size(16.0)
-                                .color(egui::Color32::from_rgb(100, 100, 100))
-                        );
-                    });
-                }
             });
+
+        if !self.sidebar_collapsed {
+            let new_width = sidebar_response.response.rect.width().max(250.0).min(800.0);
+            if (new_width - self.config.sidebar_width).abs() > 1.0 {
+                self.config.sidebar_width = new_width;
+                let _ = self.config.save();
+            }
+        }
 
         let central_opacity = ((self.config.window_opacity / 100.0) * 255.0).min(255.0) as u8;
 
@@ -904,24 +1309,71 @@ impl eframe::App for WavesApp {
                 let player_info = if is_playing {
                     let player = self.player.lock().unwrap();
                     player.as_ref().map(|state| {
-                        (state.title.clone(), state.artist.clone(), state.duration, state.waveform.clone())
+                        (state.title.clone(), state.artist.clone(), state.duration, state.waveform.clone(), state.album_cover.clone())
                     })
                 } else {
                     None
                 };
 
-                if let Some((title, artist, duration, waveform)) = player_info {
+                if let Some((title, artist, duration, waveform, album_cover)) = player_info {
                     let total_height = ui.available_height();
                     let bottom_panel_height = 200.0;
                     let spectrum_height = total_height - bottom_panel_height;
 
                     if self.config.animation {
-                        let (spectrum_rect, _) = ui.allocate_exact_size(
+                        let (spectrum_rect, spectrum_response) = ui.allocate_exact_size(
                             egui::vec2(ui.available_width(), spectrum_height),
                             egui::Sense::hover()
                         );
 
                         self.render_animation(ui, spectrum_rect);
+
+                        if spectrum_response.hovered() {
+                            self.last_animation_hover = std::time::Instant::now();
+                        }
+
+                        let hover_elapsed = self.last_animation_hover.elapsed().as_secs_f32();
+                        let fade_duration = 2.0;
+                        let alpha = if hover_elapsed < fade_duration {
+                            (1.0 - (hover_elapsed / fade_duration)).clamp(0.0, 1.0)
+                        } else {
+                            0.0
+                        };
+
+                        if alpha > 0.01 {
+                            let button_size = egui::vec2(40.0, 40.0);
+                            let button_pos = egui::pos2(
+                                spectrum_rect.max.x - button_size.x - 10.0,
+                                spectrum_rect.max.y - button_size.y - 10.0,
+                            );
+                            let button_rect = egui::Rect::from_min_size(button_pos, button_size);
+
+                            let button_response = ui.interact(button_rect, ui.id().with("fullscreen_btn"), egui::Sense::click());
+
+                            let icon_alpha = (alpha * 255.0) as u8;
+
+                            if button_response.hovered() {
+                                ui.painter().rect_stroke(
+                                    button_rect,
+                                    0.0,
+                                    egui::Stroke::new(1.5, egui::Color32::from_rgba_unmultiplied(255, 255, 255, icon_alpha)),
+                                );
+                            }
+
+                            ui.painter().text(
+                                button_rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                "⛶",
+                                egui::FontId::proportional(24.0),
+                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, icon_alpha),
+                            );
+
+                            if button_response.clicked() {
+                                self.animation_fullscreen = true;
+                            }
+
+                            ctx.request_repaint();
+                        }
                     } else {
                         ui.add_space(spectrum_height);
                     }
@@ -932,14 +1384,46 @@ impl eframe::App for WavesApp {
 
                     ui.horizontal(|ui| {
                         ui.add_space(20.0);
+
+                        let cover_size = 140.0;
+                        let (rect, _) = ui.allocate_exact_size(
+                            egui::vec2(cover_size, cover_size),
+                            egui::Sense::hover()
+                        );
+
+                        if let Some(texture) = &album_cover {
+                            ui.painter().image(
+                                texture.id(),
+                                rect,
+                                egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                                egui::Color32::WHITE
+                            );
+                        } else {
+                            ui.painter().rect_stroke(
+                                rect,
+                                0.0,
+                                egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 100, 100))
+                            );
+
+                            ui.painter().text(
+                                rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                "No cover",
+                                egui::FontId::proportional(14.0),
+                                egui::Color32::from_rgb(120, 120, 120)
+                            );
+                        }
+
+                        ui.add_space(20.0);
+
                         ui.vertical(|ui| {
+                            ui.set_width(ui.available_width() - 50.0);
                             ui.horizontal(|ui| {
                                 ui.vertical(|ui| {
                                     ui.label(
                                         egui::RichText::new(&title)
                                             .size(24.0)
                                             .color(egui::Color32::WHITE)
-                                            .strong()
                                     );
 
                                     if let Some(artist_name) = &artist {
@@ -958,13 +1442,14 @@ impl eframe::App for WavesApp {
                                         .fill(egui::Color32::TRANSPARENT)
                                         .stroke(egui::Stroke::NONE);
                                     let next_response = ui.add(next_button);
+                                    next_response.surrender_focus();
                                     if next_response.hovered() {
                                         let rect = next_response.rect;
-                                        ui.painter().rect_stroke(rect, 4.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
+                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
                                     }
                                     if next_response.is_pointer_button_down_on() {
                                         let rect = next_response.rect;
-                                        ui.painter().rect_filled(rect, 4.0, egui::Color32::WHITE);
+                                        ui.painter().rect_filled(rect, 0.0, egui::Color32::WHITE);
                                         ui.painter().text(
                                             rect.center(),
                                             egui::Align2::CENTER_CENTER,
@@ -984,13 +1469,14 @@ impl eframe::App for WavesApp {
                                         .fill(egui::Color32::TRANSPARENT)
                                         .stroke(egui::Stroke::NONE);
                                     let play_pause_response = ui.add(play_pause_button);
+                                    play_pause_response.surrender_focus();
                                     if play_pause_response.hovered() {
                                         let rect = play_pause_response.rect;
-                                        ui.painter().rect_stroke(rect, 4.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
+                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
                                     }
                                     if play_pause_response.is_pointer_button_down_on() {
                                         let rect = play_pause_response.rect;
-                                        ui.painter().rect_filled(rect, 4.0, egui::Color32::WHITE);
+                                        ui.painter().rect_filled(rect, 0.0, egui::Color32::WHITE);
                                         ui.painter().text(
                                             rect.center(),
                                             egui::Align2::CENTER_CENTER,
@@ -1005,7 +1491,6 @@ impl eframe::App for WavesApp {
 
                                     ui.add_space(8.0);
 
-                                    // Loop button
                                     let loop_color = if self.loop_enabled {
                                         self.primary_color()
                                     } else {
@@ -1015,13 +1500,14 @@ impl eframe::App for WavesApp {
                                         .fill(egui::Color32::TRANSPARENT)
                                         .stroke(egui::Stroke::NONE);
                                     let loop_response = ui.add(loop_button);
+                                    loop_response.surrender_focus();
                                     if loop_response.hovered() {
                                         let rect = loop_response.rect;
-                                        ui.painter().rect_stroke(rect, 4.0, egui::Stroke::new(1.0, loop_color));
+                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, loop_color));
                                     }
                                     if loop_response.is_pointer_button_down_on() {
                                         let rect = loop_response.rect;
-                                        ui.painter().rect_filled(rect, 4.0, loop_color);
+                                        ui.painter().rect_filled(rect, 0.0, loop_color);
                                         ui.painter().text(
                                             rect.center(),
                                             egui::Align2::CENTER_CENTER,
@@ -1040,13 +1526,14 @@ impl eframe::App for WavesApp {
                                         .fill(egui::Color32::TRANSPARENT)
                                         .stroke(egui::Stroke::NONE);
                                     let prev_response = ui.add(prev_button);
+                                    prev_response.surrender_focus();
                                     if prev_response.hovered() {
                                         let rect = prev_response.rect;
-                                        ui.painter().rect_stroke(rect, 4.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
+                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
                                     }
                                     if prev_response.is_pointer_button_down_on() {
                                         let rect = prev_response.rect;
-                                        ui.painter().rect_filled(rect, 4.0, egui::Color32::WHITE);
+                                        ui.painter().rect_filled(rect, 0.0, egui::Color32::WHITE);
                                         ui.painter().text(
                                             rect.center(),
                                             egui::Align2::CENTER_CENTER,
@@ -1165,11 +1652,63 @@ impl eframe::App for WavesApp {
                             });
                             ui.add_space(10.0);
                         });
-                        ui.add_space(20.0);
+
+                        ui.add_space(15.0);
+
+                        ui.vertical_centered(|ui| {
+                            let slider_width = 6.0;
+                            let slider_height = 120.0;
+
+                            let (rect, response) = ui.allocate_exact_size(
+                                egui::vec2(slider_width, slider_height),
+                                egui::Sense::click_and_drag()
+                            );
+
+                            let painter = ui.painter();
+
+                            painter.rect_filled(
+                                rect,
+                                0.0,
+                                egui::Color32::from_rgb(40, 40, 40),
+                            );
+
+                            let fill_height = slider_height * self.volume;
+                            let fill_rect = egui::Rect::from_min_size(
+                                egui::pos2(rect.min.x, rect.max.y - fill_height),
+                                egui::vec2(slider_width, fill_height),
+                            );
+                            painter.rect_filled(
+                                fill_rect,
+                                0.0,
+                                self.primary_color(),
+                            );
+
+                            if response.dragged() || response.clicked() {
+                                if let Some(pos) = response.interact_pointer_pos() {
+                                    let relative_y = (rect.max.y - pos.y).max(0.0).min(slider_height);
+                                    let new_volume = (relative_y / slider_height).clamp(0.0, 1.0);
+                                    self.volume = new_volume;
+                                    if let Ok(player) = self.player.lock() {
+                                        if let Some(state) = player.as_ref() {
+                                            state.sink.set_volume(self.volume);
+                                        }
+                                    }
+                                }
+                            }
+
+                            ui.add_space(8.0);
+
+                            ui.label(
+                                egui::RichText::new(format!("{:.0}", self.volume * 100.0))
+                                    .size(12.0)
+                                    .color(egui::Color32::WHITE)
+                            );
+                        });
+
+                        ui.add_space(40.0);
                     });
                 } else {
-                    ui.vertical_centered(|ui| {
-                        ui.add_space(ui.available_height() / 2.0 - 50.0);
+                    ui.centered_and_justified(|ui| {
                         ui.label(
                             egui::RichText::new("No track playing")
                                 .size(32.0)
@@ -1179,7 +1718,6 @@ impl eframe::App for WavesApp {
                 }
             });
 
-        // New folder prompt modal
         if let Some(folder_name) = &mut self.new_folder_prompt {
             let (confirmed, cancelled) = show_text_prompt(
                 ctx,
@@ -1202,7 +1740,6 @@ impl eframe::App for WavesApp {
             }
         }
 
-        // Rename prompt modal
         if let Some((old_path, new_name)) = &mut self.rename_prompt {
             let old_path_clone = old_path.clone();
             let (confirmed, cancelled) = show_text_prompt(
@@ -1230,7 +1767,6 @@ impl eframe::App for WavesApp {
             }
         }
 
-        // Delete confirmation prompt modal
         if let Some(delete_path) = &self.delete_confirm_prompt {
             let file_name = delete_path.file_name()
                 .and_then(|n| n.to_str())
@@ -1259,7 +1795,6 @@ impl eframe::App for WavesApp {
                 if let Err(e) = result {
                     eprintln!("Failed to delete: {}", e);
                 } else {
-                    // If the deleted file is currently playing, stop playback
                     let was_playing = {
                         let player = self.player.lock().unwrap();
                         if let Some(state) = player.as_ref() {
@@ -1276,7 +1811,6 @@ impl eframe::App for WavesApp {
 
                     self.update_columns();
 
-                    // Clear clipboard if deleted item was in clipboard
                     if let Some((clipboard_path, _)) = &self.clipboard {
                         if clipboard_path == &delete_path_clone {
                             self.clipboard = None;
@@ -1291,7 +1825,6 @@ impl eframe::App for WavesApp {
             }
         }
 
-        // Metadata editor modal
         if let Some(editor) = &mut self.metadata_editor {
             let mut close_editor = false;
             let mut save_metadata = false;
@@ -1476,7 +2009,6 @@ impl eframe::App for WavesApp {
             }
         }
 
-        // Search modal
         if self.search_open {
             let window_response = egui::Window::new("")
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -1490,7 +2022,6 @@ impl eframe::App for WavesApp {
                     ..Default::default()
                 })
                 .show(ctx, |ui| {
-                    // Search input container
                     egui::Frame {
                         fill: egui::Color32::BLACK,
                         stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
@@ -1520,9 +2051,7 @@ impl eframe::App for WavesApp {
 
                     ui.add_space(10.0);
 
-                    // Results container
                     if !self.search_results.is_empty() {
-                        // Handle arrow key navigation in search results
                         if ui.input(|i| i.key_pressed(egui::Key::ArrowDown) || i.key_pressed(egui::Key::J)) {
                             if self.search_selected < self.search_results.len().saturating_sub(1) {
                                 self.search_selected += 1;
@@ -1620,21 +2149,17 @@ impl eframe::App for WavesApp {
                         });
 
                         if let Some(result) = selected_result {
-                            // Navigate to the file's directory and select it
                             if let Some(parent) = result.path.parent() {
                                 self.current_dir = parent.to_path_buf();
                                 self.update_columns();
 
-                                // Find and select the file in the column
                                 if let Some(idx) = self.columns[0].entries.iter().position(|e| e.path == result.path) {
                                     self.columns[0].selected = idx;
                                 }
 
-                                // Play the file
                                 self.play_file(&result.path, ctx);
                             }
 
-                            // Close search
                             self.search_open = false;
                             self.search_query.clear();
                             self.search_results.clear();
@@ -1642,10 +2167,10 @@ impl eframe::App for WavesApp {
                     }
                 });
 
-            // Check if user clicked outside the search window
-            // Use primary_released to avoid conflict with the button that opens the search
             if let Some(response) = window_response {
-                if ctx.input(|i| i.pointer.primary_released()) {
+                if self.search_just_opened {
+                    self.search_just_opened = false;
+                } else if ctx.input(|i| i.pointer.primary_released()) {
                     if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
                         if !response.response.rect.contains(pos) {
                             self.search_open = false;
@@ -1657,7 +2182,6 @@ impl eframe::App for WavesApp {
             }
         }
 
-        // Context menu
         if let Some((path, pos)) = &self.context_menu.clone() {
             let is_dir = path.is_dir();
             if let Some(action) = show_context_menu(ctx, path, *pos, is_dir) {
@@ -1711,7 +2235,6 @@ impl eframe::App for WavesApp {
                 self.context_menu = None;
             }
 
-            // Click outside to close context menu
             if ctx.input(|i| i.pointer.primary_released()) {
                 self.context_menu = None;
             }

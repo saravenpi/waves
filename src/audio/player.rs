@@ -26,11 +26,13 @@ pub struct PlayerState {
 }
 
 impl PlayerState {
+    /// Checks if playback is currently paused.
     #[allow(dead_code)]
     pub fn is_paused(&self) -> bool {
         self.sink.is_paused()
     }
 
+    /// Pauses playback and updates timing offset.
     #[allow(dead_code)]
     pub fn pause(&mut self) {
         self.sink.pause();
@@ -38,12 +40,14 @@ impl PlayerState {
         self.pause_offset += elapsed;
     }
 
+    /// Resumes playback and resets timing.
     #[allow(dead_code)]
     pub fn play(&mut self) {
         self.sink.play();
         self.start_time = Instant::now();
     }
 
+    /// Returns the current playback position accounting for pause state.
     #[allow(dead_code)]
     pub fn get_current_position(&self) -> Duration {
         if self.sink.is_paused() {
@@ -54,11 +58,21 @@ impl PlayerState {
         }
     }
 
+    /// Sets the playback volume.
+    ///
+    /// # Arguments
+    /// * `volume` - Volume level from 0.0 to 1.0
     #[allow(dead_code)]
     pub fn set_volume(&mut self, volume: f32) {
         self.sink.set_volume(volume);
     }
 
+    /// Attempts to seek to a specific position using fast seeking.
+    ///
+    /// # Arguments
+    /// * `target_duration` - Target position in the track
+    /// # Returns
+    /// Ok if seek succeeded, Err if fast seeking is not supported
     #[allow(dead_code)]
     pub fn seek(&mut self, target_duration: Duration) -> Result<(), ()> {
         let was_paused = self.sink.is_paused();
@@ -76,6 +90,13 @@ impl PlayerState {
         }
     }
 
+    /// Fallback seek method that reloads the file and skips to position.
+    ///
+    /// Used when fast seeking is not supported by the audio format.
+    /// # Arguments
+    /// * `target_duration` - Target position in the track
+    /// # Returns
+    /// Result with error message if operation fails
     #[allow(dead_code)]
     pub fn seek_fallback(&mut self, target_duration: Duration) -> Result<(), String> {
         let current_path = self.current_file.clone();
