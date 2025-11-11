@@ -81,6 +81,10 @@ impl WavesApp {
                 }
             }
             egui::Key::L | egui::Key::Enter => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
                         if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
@@ -153,6 +157,10 @@ impl WavesApp {
                 }
             }
             egui::Key::H => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
                         if let Some(parent) = self.current_dir.parent() {
@@ -227,6 +235,10 @@ impl WavesApp {
                 }
             }
             egui::Key::ArrowLeft => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 match self.sidebar_view {
                     SidebarView::Settings => {
                         match self.settings_focused_item {
@@ -261,10 +273,6 @@ impl WavesApp {
                     SidebarView::Favorites => {
                         if self.favorites_selected > 0 {
                             self.favorites_selected -= 1;
-                            crate::cursor_sound::play_cursor_sound(
-                                self.config.ui_sounds_enabled,
-                                self.config.ui_sounds_volume
-                            );
                             if let Some(fav) = self.favorites.get(self.favorites_selected).cloned() {
                                 if !fav.is_dir {
                                     self.play_file(&fav.path, ctx);
@@ -281,6 +289,10 @@ impl WavesApp {
                 }
             }
             egui::Key::ArrowRight => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 match self.sidebar_view {
                     SidebarView::Settings => {
                         match self.settings_focused_item {
@@ -311,10 +323,6 @@ impl WavesApp {
                     SidebarView::Favorites => {
                         if self.favorites_selected < self.favorites.len().saturating_sub(1) {
                             self.favorites_selected += 1;
-                            crate::cursor_sound::play_cursor_sound(
-                                self.config.ui_sounds_enabled,
-                                self.config.ui_sounds_volume
-                            );
                             if let Some(fav) = self.favorites.get(self.favorites_selected).cloned() {
                                 if !fav.is_dir {
                                     self.play_file(&fav.path, ctx);
@@ -331,9 +339,17 @@ impl WavesApp {
                 }
             }
             egui::Key::Space => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 self.toggle_pause();
             }
             egui::Key::ArrowUp => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 self.volume = (self.volume + 0.05).min(1.0);
                 if let Ok(player) = self.player.lock() {
                     if let Some(state) = player.as_ref() {
@@ -342,6 +358,10 @@ impl WavesApp {
                 }
             }
             egui::Key::ArrowDown => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 self.volume = (self.volume - 0.05).max(0.0);
                 if let Ok(player) = self.player.lock() {
                     if let Some(state) = player.as_ref() {
@@ -350,14 +370,26 @@ impl WavesApp {
                 }
             }
             egui::Key::N => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 self.new_folder_prompt = Some(String::new());
             }
             egui::Key::R => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
                     self.rename_prompt = Some((entry.path.clone(), entry.name.clone()));
                 }
             }
             egui::Key::Y => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
                     if let Some((ref path, ClipboardOperation::Copy)) = self.clipboard {
                         if path == &entry.path {
@@ -371,6 +403,10 @@ impl WavesApp {
                 }
             }
             egui::Key::X => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
                     if let Some((ref path, ClipboardOperation::Cut)) = self.clipboard {
                         if path == &entry.path {
@@ -384,17 +420,33 @@ impl WavesApp {
                 }
             }
             egui::Key::P => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 self.paste_clipboard();
             }
             egui::Key::D => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
                     self.delete_confirm_prompt = Some(entry.path.clone());
                 }
             }
             egui::Key::F => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 self.toggle_favorite();
             }
             egui::Key::M => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
                         if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
@@ -432,6 +484,10 @@ impl WavesApp {
                 }
             }
             egui::Key::Tab => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 self.sidebar_view = match self.sidebar_view {
                     SidebarView::FileBrowser => SidebarView::Favorites,
                     SidebarView::Favorites => SidebarView::Settings,
@@ -439,6 +495,10 @@ impl WavesApp {
                 };
             }
             egui::Key::Escape => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
                 self.clipboard = None;
             }
             _ => {}
