@@ -32,7 +32,7 @@ impl eframe::App for WavesApp {
                             ui.add_space(available_height * 0.35);
 
                             ui.label(
-                                egui::RichText::new("WAVES")
+                                egui::RichText::new("Waves")
                                     .size(72.0)
                                     .color(self.primary_color())
                                     .strong()
@@ -1967,6 +1967,8 @@ impl eframe::App for WavesApp {
                 if let Err(e) = result {
                     eprintln!("Failed to delete: {}", e);
                 } else {
+                    crate::delete_sound::play_delete_sound();
+
                     let was_playing = {
                         let player = self.player.lock().unwrap();
                         if let Some(state) = player.as_ref() {

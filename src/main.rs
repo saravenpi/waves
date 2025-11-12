@@ -11,6 +11,7 @@ mod app;
 mod macos;
 mod cursor_sound;
 mod startup_sound;
+mod delete_sound;
 
 use app::WavesApp;
 use config::Config;

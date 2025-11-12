@@ -81,10 +81,6 @@ impl WavesApp {
                 }
             }
             egui::Key::L | egui::Key::Enter => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
                         if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
@@ -256,12 +252,12 @@ impl WavesApp {
                 }
             }
             egui::Key::ArrowLeft => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
                 match self.sidebar_view {
                     SidebarView::Settings => {
+                        crate::cursor_sound::play_cursor_sound(
+                            self.config.ui_sounds_enabled,
+                            self.config.ui_sounds_volume
+                        );
                         match self.settings_focused_item {
                             0 => {
                                 let preset_colors = vec![
@@ -310,12 +306,12 @@ impl WavesApp {
                 }
             }
             egui::Key::ArrowRight => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
                 match self.sidebar_view {
                     SidebarView::Settings => {
+                        crate::cursor_sound::play_cursor_sound(
+                            self.config.ui_sounds_enabled,
+                            self.config.ui_sounds_volume
+                        );
                         match self.settings_focused_item {
                             0 => {
                                 let preset_colors = vec![
@@ -360,10 +356,6 @@ impl WavesApp {
                 }
             }
             egui::Key::Space => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
                 self.toggle_pause();
             }
             egui::Key::ArrowUp => {
