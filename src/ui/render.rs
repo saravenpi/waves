@@ -532,7 +532,10 @@ impl eframe::App for WavesApp {
                     });
                 });
 
-                ui.add_space(5.0);
+                ui.add_space(10.0);
+                ui.heading(egui::RichText::new("Waves").size(32.0).color(egui::Color32::WHITE).strong());
+                ui.add_space(10.0);
+
                 let full_height = ui.available_height();
                 let metadata_height = 200.0;
                 let browser_height = full_height - metadata_height - 20.0;
