@@ -506,8 +506,11 @@ impl eframe::App for WavesApp {
                     return;
                 }
 
+                ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.heading(egui::RichText::new("Waves").size(32.0).color(egui::Color32::WHITE).strong());
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let collapse_button = egui::Button::new(
                             egui::RichText::new(collapse_arrow).size(20.0).color(egui::Color32::WHITE)
                         )
@@ -531,9 +534,6 @@ impl eframe::App for WavesApp {
                         }
                     });
                 });
-
-                ui.add_space(10.0);
-                ui.heading(egui::RichText::new("Waves").size(32.0).color(egui::Color32::WHITE).strong());
                 ui.add_space(10.0);
 
                 let full_height = ui.available_height();
@@ -640,12 +640,15 @@ impl eframe::App for WavesApp {
                                     SidebarView::Favorites => "Favorites",
                                     SidebarView::Settings => "Settings",
                                 };
-                                ui.label(egui::RichText::new(section_text).size(14.0).color(egui::Color32::from_rgb(150, 150, 150)));
 
-                                if matches!(self.sidebar_view, SidebarView::FileBrowser) {
-                                    ui.add_space(3.0);
-                                    ui.label(egui::RichText::new(format!("({})", self.browsing_mode.to_string())).size(11.0).color(self.primary_color()));
-                                }
+                                ui.horizontal(|ui| {
+                                    ui.label(egui::RichText::new(section_text).size(14.0).color(egui::Color32::from_rgb(150, 150, 150)));
+
+                                    if matches!(self.sidebar_view, SidebarView::FileBrowser) {
+                                        ui.add_space(3.0);
+                                        ui.label(egui::RichText::new(format!("({})", self.browsing_mode.to_string())).size(11.0).color(self.primary_color()));
+                                    }
+                                });
                             });
 
                             if search_clicked {
