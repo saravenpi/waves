@@ -8,6 +8,7 @@ use crate::config::SidebarPosition;
 use crate::types::{FileEntry, Favorite, ClipboardOperation, SidebarView};
 use crate::ui::helpers::{ContextMenuAction, show_text_prompt, show_context_menu};
 use crate::ui::input::MetadataEditor;
+use crate::ui::components::ConfirmDialog;
 use crate::utils::{format_duration, truncate_text};
 use crate::metadata::{extract_metadata, save_audio_metadata};
 use crate::favorites;
@@ -1961,114 +1962,14 @@ impl eframe::App for WavesApp {
             };
 
             let delete_path_clone = delete_path.clone();
-            let mut confirmed = false;
-            let mut cancelled = false;
 
-            let window_response = egui::Window::new("")
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .collapsible(false)
-                .resizable(false)
-                .title_bar(false)
-                .fixed_size([400.0, 150.0])
-                .frame(egui::Frame {
-                    fill: egui::Color32::TRANSPARENT,
-                    stroke: egui::Stroke::NONE,
-                    ..Default::default()
-                })
-                .show(ctx, |ui| {
-                    egui::Frame {
-                        fill: egui::Color32::BLACK,
-                        stroke: egui::Stroke::new(1.0, egui::Color32::WHITE),
-                        inner_margin: egui::Margin::same(20.0),
-                        ..Default::default()
-                    }
-                    .show(ui, |ui| {
-                        ui.vertical_centered(|ui| {
-                            ui.label(egui::RichText::new("Confirm Delete").size(18.0).color(egui::Color32::WHITE).strong());
-                            ui.add_space(15.0);
-                            ui.label(egui::RichText::new(&message).size(14.0).color(egui::Color32::from_rgb(200, 200, 200)));
-                            ui.add_space(20.0);
+            let (confirmed, cancelled, new_selected) = ConfirmDialog::new("Confirm Delete", &message)
+                .confirm_text("Delete")
+                .cancel_text("Cancel")
+                .selected(self.delete_confirm_selected)
+                .show(ctx, self.primary_color());
 
-                            ui.horizontal(|ui| {
-                                ui.add_space((ui.available_width() - 220.0) / 2.0);
-
-                                let cancel_selected = self.delete_confirm_selected == 0;
-                                let cancel_color = if cancel_selected {
-                                    egui::Color32::BLACK
-                                } else {
-                                    egui::Color32::TRANSPARENT
-                                };
-                                let cancel_text_color = if cancel_selected {
-                                    egui::Color32::WHITE
-                                } else {
-                                    egui::Color32::from_rgb(150, 150, 150)
-                                };
-
-                                let cancel_button = egui::Button::new(
-                                    egui::RichText::new("Cancel").size(14.0).color(cancel_text_color)
-                                )
-                                .fill(cancel_color)
-                                .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
-                                .min_size(egui::vec2(100.0, 35.0));
-
-                                if ui.add(cancel_button).clicked() {
-                                    cancelled = true;
-                                }
-
-                                ui.add_space(20.0);
-
-                                let delete_selected = self.delete_confirm_selected == 1;
-                                let delete_color = if delete_selected {
-                                    self.primary_color()
-                                } else {
-                                    egui::Color32::TRANSPARENT
-                                };
-                                let delete_text_color = if delete_selected {
-                                    egui::Color32::WHITE
-                                } else {
-                                    self.primary_color()
-                                };
-
-                                let delete_button = egui::Button::new(
-                                    egui::RichText::new("Delete").size(14.0).color(delete_text_color)
-                                )
-                                .fill(delete_color)
-                                .stroke(egui::Stroke::new(1.0, self.primary_color()))
-                                .min_size(egui::vec2(100.0, 35.0));
-
-                                if ui.add(delete_button).clicked() {
-                                    confirmed = true;
-                                }
-                            });
-                        });
-                    });
-                });
-
-            if let Some(response) = window_response {
-                if response.response.clicked_elsewhere() {
-                    cancelled = true;
-                }
-            }
-
-            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-                cancelled = true;
-            }
-
-            if ctx.input(|i| i.key_pressed(egui::Key::H) || i.key_pressed(egui::Key::ArrowLeft)) {
-                self.delete_confirm_selected = 0;
-            }
-
-            if ctx.input(|i| i.key_pressed(egui::Key::L) || i.key_pressed(egui::Key::ArrowRight)) {
-                self.delete_confirm_selected = 1;
-            }
-
-            if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-                if self.delete_confirm_selected == 0 {
-                    cancelled = true;
-                } else {
-                    confirmed = true;
-                }
-            }
+            self.delete_confirm_selected = new_selected;
 
             if confirmed {
                 let result = if is_dir {

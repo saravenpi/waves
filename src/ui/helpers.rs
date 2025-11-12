@@ -20,34 +20,6 @@ pub fn truncate_text(text: &str, max_chars: usize) -> String {
     }
 }
 
-pub fn show_confirm_prompt(
-    ctx: &egui::Context,
-    title: &str,
-    message: &str,
-) -> (bool, bool) {
-    let mut confirmed = false;
-    let mut cancelled = false;
-
-    egui::Window::new(title)
-        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-        .collapsible(false)
-        .resizable(false)
-        .show(ctx, |ui| {
-            ui.label(message);
-            ui.add_space(10.0);
-            ui.horizontal(|ui| {
-                if ui.button("Yes").clicked() || ui.input(|i| i.key_pressed(egui::Key::Y)) {
-                    confirmed = true;
-                }
-                if ui.button("No").clicked() || ui.input(|i| i.key_pressed(egui::Key::N) || i.key_pressed(egui::Key::Escape)) {
-                    cancelled = true;
-                }
-            });
-        });
-
-    (confirmed, cancelled)
-}
-
 pub fn show_text_prompt(
     ctx: &egui::Context,
     hint: &str,
