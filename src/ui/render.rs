@@ -118,6 +118,69 @@ impl eframe::App for WavesApp {
             self.last_mouse_movement = std::time::Instant::now();
         }
 
+        let (is_playing, is_empty, is_paused) = {
+            let player = self.player.lock().unwrap();
+            if let Some(state) = player.as_ref() {
+                (true, state.sink.empty(), state.sink.is_paused())
+            } else {
+                (false, false, false)
+            }
+        };
+
+        if is_playing {
+            if is_empty {
+                if self.loop_enabled {
+                    let current_file = self.player.lock().unwrap()
+                        .as_ref()
+                        .map(|state| state.current_file.clone());
+                    if let Some(file) = current_file {
+                        self.play_file(&file, ctx);
+                    }
+                } else {
+                    match self.playback_context {
+                        SidebarView::Favorites => self.play_next_favorite(ctx),
+                        _ => self.play_next_song(ctx),
+                    }
+                }
+            } else if !is_paused {
+                let (audio_buffer, sample_rate, channels) = {
+                    let player = self.player.lock().unwrap();
+                    if let Some(state) = player.as_ref() {
+                        (state.audio_buffer.clone(), state.sample_rate, state.channels)
+                    } else {
+                        if !self.animation_fullscreen {
+                            return;
+                        } else {
+                            (std::sync::Arc::new(std::sync::Mutex::new(std::collections::VecDeque::new())), 44100, 2)
+                        }
+                    }
+                };
+
+                self.update_spectrum(&audio_buffer, sample_rate, channels);
+                ctx.request_repaint();
+            } else {
+                let audio_buffer = {
+                    let player = self.player.lock().unwrap();
+                    if let Some(state) = player.as_ref() {
+                        Some(state.audio_buffer.clone())
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(buffer) = audio_buffer {
+                    buffer.lock().unwrap().clear();
+                }
+
+                for i in 0..self.spectrum_bars.len() {
+                    self.spectrum_bars[i] = (self.spectrum_bars[i] - 0.02).max(0.0);
+                }
+                if self.spectrum_bars.iter().any(|&x| x > 0.0) {
+                    ctx.request_repaint();
+                }
+            }
+        }
+
         if self.animation_fullscreen {
             ctx.input(|i| {
                 for event in &i.events {
@@ -279,65 +342,6 @@ impl eframe::App for WavesApp {
                 if current_count != self.last_folder_file_count {
                     self.last_folder_file_count = current_count;
                     self.update_columns();
-                }
-            }
-        }
-
-        let (is_playing, is_empty, is_paused) = {
-            let player = self.player.lock().unwrap();
-            if let Some(state) = player.as_ref() {
-                (true, state.sink.empty(), state.sink.is_paused())
-            } else {
-                (false, false, false)
-            }
-        };
-
-        if is_playing {
-            if is_empty {
-                if self.loop_enabled {
-                    let current_file = self.player.lock().unwrap()
-                        .as_ref()
-                        .map(|state| state.current_file.clone());
-                    if let Some(file) = current_file {
-                        self.play_file(&file, ctx);
-                    }
-                } else {
-                    match self.playback_context {
-                        SidebarView::Favorites => self.play_next_favorite(ctx),
-                        _ => self.play_next_song(ctx),
-                    }
-                }
-            } else if !is_paused {
-                let (audio_buffer, sample_rate, channels) = {
-                    let player = self.player.lock().unwrap();
-                    if let Some(state) = player.as_ref() {
-                        (state.audio_buffer.clone(), state.sample_rate, state.channels)
-                    } else {
-                        return;
-                    }
-                };
-
-                self.update_spectrum(&audio_buffer, sample_rate, channels);
-                ctx.request_repaint();
-            } else {
-                let audio_buffer = {
-                    let player = self.player.lock().unwrap();
-                    if let Some(state) = player.as_ref() {
-                        Some(state.audio_buffer.clone())
-                    } else {
-                        None
-                    }
-                };
-
-                if let Some(buffer) = audio_buffer {
-                    buffer.lock().unwrap().clear();
-                }
-
-                for i in 0..self.spectrum_bars.len() {
-                    self.spectrum_bars[i] = (self.spectrum_bars[i] - 0.02).max(0.0);
-                }
-                if self.spectrum_bars.iter().any(|&x| x > 0.0) {
-                    ctx.request_repaint();
                 }
             }
         }
