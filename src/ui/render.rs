@@ -354,7 +354,7 @@ impl eframe::App for WavesApp {
                 .show(ctx, |ui| {
                     ui.separator();
                     let volume_percent = (self.volume * 100.0) as i32;
-                    let status_text = format!(" h/j/k/l: navigate | ENTER: select/play | SPACE: pause | ←/→: prev/next | n: new | r: rename | y: copy | x: cut | p: paste | d: delete | f: fav | TAB: view | ↑/↓: vol ({}%)", volume_percent);
+                    let status_text = format!(" h/j/k/l: navigate | ENTER: select/play | SPACE: pause | ←/→: prev/next | b: browse mode | n: new | r: rename | y: copy | x: cut | p: paste | d: delete | f: fav | TAB: view | ↑/↓: vol ({}%)", volume_percent);
                     ui.label(egui::RichText::new(status_text).size(18.0).color(egui::Color32::WHITE).monospace());
                 });
         }
@@ -482,7 +482,8 @@ impl eframe::App for WavesApp {
                     |ui| {
                         let folder_name = self.current_dir.file_name()
                             .and_then(|n| n.to_str())
-                            .unwrap_or("/");
+                            .unwrap_or("/")
+                            .to_string();
 
                         ui.allocate_ui_with_layout(
                             egui::vec2(ui.available_width(), 30.0),
@@ -572,6 +573,11 @@ impl eframe::App for WavesApp {
                                     SidebarView::Settings => "Settings",
                                 };
                                 ui.label(egui::RichText::new(section_text).size(14.0).color(egui::Color32::from_rgb(150, 150, 150)));
+
+                                if matches!(self.sidebar_view, SidebarView::FileBrowser) {
+                                    ui.add_space(3.0);
+                                    ui.label(egui::RichText::new(format!("({})", self.browsing_mode.to_string())).size(11.0).color(self.primary_color()));
+                                }
                             });
 
                             if search_clicked {

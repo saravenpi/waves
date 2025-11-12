@@ -1,6 +1,8 @@
 use crate::types::{FileEntry, Column};
+use crate::metadata::extract_metadata;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 
 pub fn read_directory(path: &Path) -> Vec<FileEntry> {
     let mut entries = Vec::new();
@@ -95,4 +97,65 @@ pub fn update_columns_with_selection(
         selected,
     };
     columns.push(current_column);
+}
+
+pub fn collect_all_audio_files(root_path: &Path) -> Vec<PathBuf> {
+    let mut audio_files = Vec::new();
+    collect_audio_files_recursive(root_path, &mut audio_files);
+    audio_files.sort();
+    audio_files
+}
+
+fn collect_audio_files_recursive(path: &Path, files: &mut Vec<PathBuf>) {
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let entry_path = entry.path();
+
+            if let Some(name) = entry_path.file_name() {
+                if name.to_string_lossy().starts_with('.') {
+                    continue;
+                }
+            }
+
+            if entry_path.is_dir() {
+                collect_audio_files_recursive(&entry_path, files);
+            } else if entry_path.is_file() {
+                if let Some(ext) = entry_path.extension() {
+                    if let Some(ext_str) = ext.to_str() {
+                        if matches!(ext_str, "mp3" | "wav" | "flac" | "ogg" | "m4a") {
+                            files.push(entry_path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn group_by_artist(audio_files: &[PathBuf]) -> Vec<(String, Vec<PathBuf>)> {
+    let mut artist_map: HashMap<String, Vec<PathBuf>> = HashMap::new();
+
+    for file in audio_files {
+        let (_title, artist, _album, _date, _track, _duration) = extract_metadata(file);
+        let artist_name = artist.unwrap_or_else(|| "Unknown Artist".to_string());
+        artist_map.entry(artist_name).or_insert_with(Vec::new).push(file.clone());
+    }
+
+    let mut artists: Vec<_> = artist_map.into_iter().collect();
+    artists.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+    artists
+}
+
+pub fn group_by_album(audio_files: &[PathBuf]) -> Vec<(String, Vec<PathBuf>)> {
+    let mut album_map: HashMap<String, Vec<PathBuf>> = HashMap::new();
+
+    for file in audio_files {
+        let (_title, _artist, album, _date, _track, _duration) = extract_metadata(file);
+        let album_name = album.unwrap_or_else(|| "Unknown Album".to_string());
+        album_map.entry(album_name).or_insert_with(Vec::new).push(file.clone());
+    }
+
+    let mut albums: Vec<_> = album_map.into_iter().collect();
+    albums.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+    albums
 }

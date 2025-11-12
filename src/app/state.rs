@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::types::{Column, ClipboardOperation, Favorite, SidebarView};
+use crate::types::{Column, ClipboardOperation, Favorite, SidebarView, BrowsingMode};
 use crate::audio::PlayerState;
 use crate::file_operations::SearchResult;
 use crate::ui::input::MetadataEditor;
@@ -56,6 +56,7 @@ pub struct WavesApp {
     pub animation_fullscreen: bool,
     pub last_mouse_movement: std::time::Instant,
     pub last_animation_hover: std::time::Instant,
+    pub browsing_mode: BrowsingMode,
 }
 
 impl WavesApp {
@@ -179,6 +180,7 @@ impl WavesApp {
             animation_fullscreen: false,
             last_mouse_movement: std::time::Instant::now(),
             last_animation_hover: std::time::Instant::now(),
+            browsing_mode: BrowsingMode::FileStructure,
         };
 
         app.update_columns();

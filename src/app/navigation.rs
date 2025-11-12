@@ -1,5 +1,5 @@
 use crate::app::WavesApp;
-use crate::types::{FileEntry, ClipboardOperation, Favorite, SidebarView};
+use crate::types::{FileEntry, ClipboardOperation, Favorite, SidebarView, BrowsingMode};
 use crate::metadata::extract_metadata;
 use crate::ui::input::MetadataEditor;
 use eframe::egui;
@@ -89,8 +89,19 @@ impl WavesApp {
                     SidebarView::FileBrowser => {
                         if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
                             if entry.is_dir {
-                                self.current_dir = entry.path.clone();
-                                self.update_columns_with_selection(Some(0));
+                                match self.browsing_mode {
+                                    BrowsingMode::FileStructure => {
+                                        self.current_dir = entry.path.clone();
+                                        self.update_columns_with_selection(Some(0));
+                                    }
+                                    BrowsingMode::ByArtist | BrowsingMode::ByAlbum => {
+                                        let files = self.get_files_for_group(&entry.name);
+                                        if !files.is_empty() {
+                                            self.play_file(&files[0], ctx);
+                                        }
+                                    }
+                                    BrowsingMode::AllSongs => {}
+                                }
                             } else {
                                 self.play_file(&entry.path, ctx);
                             }
@@ -163,10 +174,12 @@ impl WavesApp {
                 );
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
-                        if let Some(parent) = self.current_dir.parent() {
-                            if parent >= self.root_dir.as_path() {
-                                self.current_dir = parent.to_path_buf();
-                                self.update_columns();
+                        if self.browsing_mode == BrowsingMode::FileStructure {
+                            if let Some(parent) = self.current_dir.parent() {
+                                if parent >= self.root_dir.as_path() {
+                                    self.current_dir = parent.to_path_buf();
+                                    self.update_columns();
+                                }
                             }
                         }
                     }
@@ -493,6 +506,19 @@ impl WavesApp {
                     SidebarView::Favorites => SidebarView::Settings,
                     SidebarView::Settings => SidebarView::FileBrowser,
                 };
+            }
+            egui::Key::B => {
+                crate::cursor_sound::play_cursor_sound(
+                    self.config.ui_sounds_enabled,
+                    self.config.ui_sounds_volume
+                );
+                match self.sidebar_view {
+                    SidebarView::FileBrowser => {
+                        self.browsing_mode = self.browsing_mode.next();
+                        self.update_columns_with_selection(Some(0));
+                    }
+                    _ => {}
+                }
             }
             egui::Key::Escape => {
                 crate::cursor_sound::play_cursor_sound(

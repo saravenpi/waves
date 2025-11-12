@@ -32,3 +32,31 @@ pub enum SidebarView {
     Favorites,
     Settings,
 }
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum BrowsingMode {
+    FileStructure,
+    ByArtist,
+    ByAlbum,
+    AllSongs,
+}
+
+impl BrowsingMode {
+    pub fn to_string(&self) -> &str {
+        match self {
+            BrowsingMode::FileStructure => "File Structure",
+            BrowsingMode::ByArtist => "By Artist",
+            BrowsingMode::ByAlbum => "By Album",
+            BrowsingMode::AllSongs => "All Songs",
+        }
+    }
+
+    pub fn next(&self) -> Self {
+        match self {
+            BrowsingMode::FileStructure => BrowsingMode::ByArtist,
+            BrowsingMode::ByArtist => BrowsingMode::ByAlbum,
+            BrowsingMode::ByAlbum => BrowsingMode::AllSongs,
+            BrowsingMode::AllSongs => BrowsingMode::FileStructure,
+        }
+    }
+}
