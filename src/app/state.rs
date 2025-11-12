@@ -57,6 +57,10 @@ pub struct WavesApp {
     pub last_mouse_movement: std::time::Instant,
     pub last_animation_hover: std::time::Instant,
     pub browsing_mode: BrowsingMode,
+    pub audio_files_cache: Option<Vec<PathBuf>>,
+    pub artist_groups_cache: Option<Vec<(String, Vec<PathBuf>)>>,
+    pub album_groups_cache: Option<Vec<(String, Vec<PathBuf>)>>,
+    pub cache_root_dir: Option<PathBuf>,
 }
 
 impl WavesApp {
@@ -181,6 +185,10 @@ impl WavesApp {
             last_mouse_movement: std::time::Instant::now(),
             last_animation_hover: std::time::Instant::now(),
             browsing_mode: BrowsingMode::FileStructure,
+            audio_files_cache: None,
+            artist_groups_cache: None,
+            album_groups_cache: None,
+            cache_root_dir: None,
         };
 
         app.update_columns();
