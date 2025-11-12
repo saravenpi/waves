@@ -16,15 +16,9 @@ use crate::file_operations::SearchResult;
 impl eframe::App for WavesApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.startup_animation {
-            let sound_finished = if let Ok(finished) = self.startup_sound_finished.lock() {
-                *finished
-            } else {
-                true
-            };
+            let min_time_elapsed = self.startup_time.elapsed().as_secs_f32() >= 1.2;
 
-            let min_time_elapsed = self.startup_time.elapsed().as_secs_f32() >= 0.8;
-
-            if sound_finished && min_time_elapsed {
+            if min_time_elapsed {
                 self.startup_animation = false;
             } else {
                 let opacity = (self.config.window_opacity / 100.0 * 255.0) as u8;
@@ -1348,6 +1342,67 @@ impl eframe::App for WavesApp {
                                         ui.add_space(15.0);
 
                                         let is_focused = self.settings_focused_item == 8;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
+                                            ui.horizontal(|ui| {
+                                                ui.label(egui::RichText::new("Startup Sound").size(16.0).color(egui::Color32::WHITE));
+
+                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                    let toggle_width = 50.0;
+                                                    let toggle_height = 25.0;
+                                                    let (rect, response) = ui.allocate_exact_size(
+                                                        egui::vec2(toggle_width, toggle_height),
+                                                        egui::Sense::click()
+                                                    );
+
+                                                    if response.clicked() {
+                                                        self.config.startup_sound_enabled = !self.config.startup_sound_enabled;
+                                                        let _ = self.config.save();
+                                                    }
+
+                                                    let bg_color = if self.config.startup_sound_enabled {
+                                                        self.primary_color()
+                                                    } else {
+                                                        egui::Color32::from_rgb(60, 60, 60)
+                                                    };
+
+                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+
+                                                    let square_size = 20.0;
+                                                    let square_x = if self.config.startup_sound_enabled {
+                                                        rect.max.x - square_size - 2.5
+                                                    } else {
+                                                        rect.min.x + 2.5
+                                                    };
+                                                    let square_y = rect.min.y + (rect.height() - square_size) / 2.0;
+
+                                                    let square_rect = egui::Rect::from_min_size(
+                                                        egui::pos2(square_x, square_y),
+                                                        egui::vec2(square_size, square_size),
+                                                    );
+
+                                                    ui.painter().rect_filled(
+                                                        square_rect,
+                                                        0.0,
+                                                        egui::Color32::WHITE,
+                                                    );
+                                                });
+                                            });
+                                        });
+
+                                        ui.add_space(15.0);
+
+                                        ui.separator();
+                                        ui.add_space(15.0);
+
+                                        let is_focused = self.settings_focused_item == 9;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))

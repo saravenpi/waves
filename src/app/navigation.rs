@@ -37,7 +37,7 @@ impl WavesApp {
                         }
                     }
                     SidebarView::Settings => {
-                        let max_items = 9;
+                        let max_items = 10;
                         if self.settings_focused_item < max_items - 1 {
                             self.settings_focused_item += 1;
                             moved = true;
@@ -162,6 +162,10 @@ impl WavesApp {
                                 self.config.ui_sounds_enabled = !self.config.ui_sounds_enabled;
                                 let _ = self.config.save();
                             }
+                            8 => {
+                                self.config.startup_sound_enabled = !self.config.startup_sound_enabled;
+                                let _ = self.config.save();
+                            }
                             _ => {}
                         }
                     }
@@ -233,6 +237,10 @@ impl WavesApp {
                             }
                             6 => {
                                 self.config.ui_sounds_enabled = false;
+                                let _ = self.config.save();
+                            }
+                            8 => {
+                                self.config.startup_sound_enabled = false;
                                 let _ = self.config.save();
                             }
                             7 => {

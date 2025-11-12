@@ -77,6 +77,8 @@ pub struct Config {
     pub ui_sounds_enabled: bool,
     #[serde(default = "default_ui_sounds_volume")]
     pub ui_sounds_volume: f32,
+    #[serde(default = "default_true")]
+    pub startup_sound_enabled: bool,
 }
 
 fn default_true() -> bool {
@@ -115,6 +117,7 @@ impl Default for Config {
             sidebar_width: default_sidebar_width(),
             ui_sounds_enabled: true,
             ui_sounds_volume: default_ui_sounds_volume(),
+            startup_sound_enabled: true,
         }
     }
 }

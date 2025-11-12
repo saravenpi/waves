@@ -65,7 +65,6 @@ pub struct WavesApp {
     pub cache_receiver: Option<Receiver<CacheResult>>,
     pub startup_animation: bool,
     pub startup_time: std::time::Instant,
-    pub startup_sound_finished: Arc<Mutex<bool>>,
 }
 
 pub enum CacheResult {
@@ -150,9 +149,9 @@ impl WavesApp {
 
         let default_folder_input = config.default_folder.clone().unwrap_or_else(|| String::from("~/Music"));
 
-        let startup_sound_finished = Arc::new(Mutex::new(false));
-        let startup_sound_flag = Arc::clone(&startup_sound_finished);
-        crate::startup_sound::play_startup_sound(startup_sound_flag);
+        if config.startup_sound_enabled {
+            crate::startup_sound::play_startup_sound();
+        }
 
         let mut app = Self {
             current_dir: start_dir.clone(),
@@ -208,7 +207,6 @@ impl WavesApp {
             cache_receiver: None,
             startup_animation: true,
             startup_time: std::time::Instant::now(),
-            startup_sound_finished,
         };
 
         app.update_columns();
