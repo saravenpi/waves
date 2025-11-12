@@ -4,4 +4,4 @@ pub mod navigation;
 pub mod playback;
 pub mod search;
 
-pub use state::WavesApp;
+pub use state::{WavesApp, CacheResult};

@@ -114,6 +114,29 @@ impl eframe::App for WavesApp {
             ctx.request_repaint();
         }
 
+        let mut cache_updates = Vec::new();
+        if let Some(ref receiver) = self.cache_receiver {
+            while let Ok(result) = receiver.try_recv() {
+                cache_updates.push(result);
+            }
+        }
+
+        for result in cache_updates {
+            match result {
+                crate::app::CacheResult::AudioFiles(files) => {
+                    self.audio_files_cache = Some(files);
+                }
+                crate::app::CacheResult::ArtistGroups(groups) => {
+                    self.artist_groups_cache = Some(groups);
+                }
+                crate::app::CacheResult::AlbumGroups(groups) => {
+                    self.album_groups_cache = Some(groups);
+                }
+            }
+            self.update_columns();
+            ctx.request_repaint();
+        }
+
         if ctx.input(|i| i.pointer.is_moving()) {
             self.last_mouse_movement = std::time::Instant::now();
         }

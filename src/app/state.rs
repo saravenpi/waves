@@ -61,6 +61,14 @@ pub struct WavesApp {
     pub artist_groups_cache: Option<Vec<(String, Vec<PathBuf>)>>,
     pub album_groups_cache: Option<Vec<(String, Vec<PathBuf>)>>,
     pub cache_root_dir: Option<PathBuf>,
+    pub cache_loading: bool,
+    pub cache_receiver: Option<Receiver<CacheResult>>,
+}
+
+pub enum CacheResult {
+    AudioFiles(Vec<PathBuf>),
+    ArtistGroups(Vec<(String, Vec<PathBuf>)>),
+    AlbumGroups(Vec<(String, Vec<PathBuf>)>),
 }
 
 impl WavesApp {
@@ -189,6 +197,8 @@ impl WavesApp {
             artist_groups_cache: None,
             album_groups_cache: None,
             cache_root_dir: None,
+            cache_loading: false,
+            cache_receiver: None,
         };
 
         app.update_columns();

@@ -1,6 +1,7 @@
-use crate::app::WavesApp;
+use crate::app::{WavesApp, CacheResult};
 use crate::types::{Column, FileEntry, BrowsingMode};
 use crate::file_operations::browser::{read_directory, collect_all_audio_files, group_by_artist, group_by_album};
+use std::sync::mpsc::channel;
 
 impl WavesApp {
     /// Updates the file browser columns using the current selection.
@@ -28,6 +29,8 @@ impl WavesApp {
             self.artist_groups_cache = None;
             self.album_groups_cache = None;
             self.cache_root_dir = Some(self.root_dir.clone());
+            self.cache_loading = false;
+            self.cache_receiver = None;
         }
 
         let current_entries = match self.browsing_mode {
@@ -35,14 +38,20 @@ impl WavesApp {
                 read_directory(&self.current_dir)
             }
             BrowsingMode::ByArtist => {
-                if self.audio_files_cache.is_none() {
-                    self.audio_files_cache = Some(collect_all_audio_files(&self.root_dir));
-                }
+                if self.audio_files_cache.is_none() && !self.cache_loading {
+                    self.cache_loading = true;
+                    let root_dir = self.root_dir.clone();
+                    let (sender, receiver) = channel();
+                    self.cache_receiver = Some(receiver);
 
-                if self.artist_groups_cache.is_none() {
-                    if let Some(ref audio_files) = self.audio_files_cache {
-                        self.artist_groups_cache = Some(group_by_artist(audio_files));
-                    }
+                    std::thread::spawn(move || {
+                        let audio_files = collect_all_audio_files(&root_dir);
+                        let _ = sender.send(CacheResult::AudioFiles(audio_files.clone()));
+                        let artists = group_by_artist(&audio_files);
+                        let _ = sender.send(CacheResult::ArtistGroups(artists));
+                        let albums = group_by_album(&audio_files);
+                        let _ = sender.send(CacheResult::AlbumGroups(albums));
+                    });
                 }
 
                 if let Some(ref artists) = self.artist_groups_cache {
@@ -54,18 +63,28 @@ impl WavesApp {
                         }
                     }).collect()
                 } else {
-                    Vec::new()
+                    vec![FileEntry {
+                        name: "Loading artists...".to_string(),
+                        path: self.root_dir.clone(),
+                        is_dir: true,
+                    }]
                 }
             }
             BrowsingMode::ByAlbum => {
-                if self.audio_files_cache.is_none() {
-                    self.audio_files_cache = Some(collect_all_audio_files(&self.root_dir));
-                }
+                if self.audio_files_cache.is_none() && !self.cache_loading {
+                    self.cache_loading = true;
+                    let root_dir = self.root_dir.clone();
+                    let (sender, receiver) = channel();
+                    self.cache_receiver = Some(receiver);
 
-                if self.album_groups_cache.is_none() {
-                    if let Some(ref audio_files) = self.audio_files_cache {
-                        self.album_groups_cache = Some(group_by_album(audio_files));
-                    }
+                    std::thread::spawn(move || {
+                        let audio_files = collect_all_audio_files(&root_dir);
+                        let _ = sender.send(CacheResult::AudioFiles(audio_files.clone()));
+                        let artists = group_by_artist(&audio_files);
+                        let _ = sender.send(CacheResult::ArtistGroups(artists));
+                        let albums = group_by_album(&audio_files);
+                        let _ = sender.send(CacheResult::AlbumGroups(albums));
+                    });
                 }
 
                 if let Some(ref albums) = self.album_groups_cache {
@@ -77,12 +96,28 @@ impl WavesApp {
                         }
                     }).collect()
                 } else {
-                    Vec::new()
+                    vec![FileEntry {
+                        name: "Loading albums...".to_string(),
+                        path: self.root_dir.clone(),
+                        is_dir: true,
+                    }]
                 }
             }
             BrowsingMode::AllSongs => {
-                if self.audio_files_cache.is_none() {
-                    self.audio_files_cache = Some(collect_all_audio_files(&self.root_dir));
+                if self.audio_files_cache.is_none() && !self.cache_loading {
+                    self.cache_loading = true;
+                    let root_dir = self.root_dir.clone();
+                    let (sender, receiver) = channel();
+                    self.cache_receiver = Some(receiver);
+
+                    std::thread::spawn(move || {
+                        let audio_files = collect_all_audio_files(&root_dir);
+                        let _ = sender.send(CacheResult::AudioFiles(audio_files.clone()));
+                        let artists = group_by_artist(&audio_files);
+                        let _ = sender.send(CacheResult::ArtistGroups(artists));
+                        let albums = group_by_album(&audio_files);
+                        let _ = sender.send(CacheResult::AlbumGroups(albums));
+                    });
                 }
 
                 if let Some(ref audio_files) = self.audio_files_cache {
@@ -98,7 +133,11 @@ impl WavesApp {
                         }
                     }).collect()
                 } else {
-                    Vec::new()
+                    vec![FileEntry {
+                        name: "Loading songs...".to_string(),
+                        path: self.root_dir.clone(),
+                        is_dir: true,
+                    }]
                 }
             }
         };
