@@ -507,7 +507,7 @@ impl eframe::App for WavesApp {
                 }
 
                 ui.add_space(10.0);
-                ui.horizontal(|ui| {
+                ui.horizontal_centered(|ui| {
                     ui.heading(egui::RichText::new("Waves").size(32.0).color(egui::Color32::WHITE).strong());
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -641,7 +641,7 @@ impl eframe::App for WavesApp {
                                     SidebarView::Settings => "Settings",
                                 };
 
-                                ui.horizontal(|ui| {
+                                ui.horizontal_centered(|ui| {
                                     ui.label(egui::RichText::new(section_text).size(14.0).color(egui::Color32::from_rgb(150, 150, 150)));
 
                                     if matches!(self.sidebar_view, SidebarView::FileBrowser) {
