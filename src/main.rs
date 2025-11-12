@@ -10,6 +10,7 @@ mod album_cover;
 mod app;
 mod macos;
 mod cursor_sound;
+mod startup_sound;
 
 use app::WavesApp;
 use config::Config;

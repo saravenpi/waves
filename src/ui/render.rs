@@ -15,6 +15,54 @@ use crate::file_operations::SearchResult;
 
 impl eframe::App for WavesApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.startup_animation {
+            let sound_finished = if let Ok(finished) = self.startup_sound_finished.lock() {
+                *finished
+            } else {
+                true
+            };
+
+            let min_time_elapsed = self.startup_time.elapsed().as_secs_f32() >= 0.8;
+
+            if sound_finished && min_time_elapsed {
+                self.startup_animation = false;
+            } else {
+                let opacity = (self.config.window_opacity / 100.0 * 255.0) as u8;
+                let bg_color = egui::Color32::from_rgba_unmultiplied(0, 0, 0, opacity);
+
+                egui::CentralPanel::default()
+                    .frame(egui::Frame::none().fill(bg_color))
+                    .show(ctx, |ui| {
+                        ui.vertical_centered(|ui| {
+                            let available_height = ui.available_height();
+                            ui.add_space(available_height * 0.35);
+
+                            ui.label(
+                                egui::RichText::new("WAVES")
+                                    .size(72.0)
+                                    .color(self.primary_color())
+                                    .strong()
+                            );
+
+                            ui.add_space(40.0);
+
+                            crate::ui::spinner::square_spinner(ui, 60.0, self.primary_color());
+
+                            ui.add_space(20.0);
+
+                            ui.label(
+                                egui::RichText::new("Music Player")
+                                    .size(18.0)
+                                    .color(egui::Color32::from_gray(180))
+                            );
+                        });
+                    });
+
+                ctx.request_repaint();
+                return;
+            }
+        }
+
         if let Some(file_path) = self.file_to_play_on_start.take() {
             if !self.columns.is_empty() {
                 if let Some(idx) = self.columns[0].entries.iter().position(|e| e.path == file_path) {
