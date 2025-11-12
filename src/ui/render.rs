@@ -633,6 +633,14 @@ impl eframe::App for WavesApp {
                                     let available_width = ui.available_width();
                                     let max_chars = ((available_width - 10.0) / 10.5) as usize;
 
+                                    if !column.entries.is_empty()
+                                        && (column.entries[0].name.starts_with("Loading ")) {
+                                        let loading_text = &column.entries[0].name;
+                                        ui.add_space(50.0);
+                                        crate::ui::spinner::square_spinner_with_text(ui, loading_text, self.primary_color());
+                                        return;
+                                    }
+
                                     for (idx, entry) in column.entries.iter().enumerate() {
                                         let is_selected = idx == column.selected;
 
