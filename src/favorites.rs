@@ -20,10 +20,25 @@ pub fn file_path() -> PathBuf {
 /// Loads favorites from the YAML file.
 ///
 /// Returns empty vector if the file doesn't exist or cannot be parsed.
+/// Filters out favorites that point to non-existent files/directories.
 pub fn load() -> Vec<Favorite> {
     let path = file_path();
     if let Ok(contents) = fs::read_to_string(&path) {
-        serde_yaml::from_str(&contents).unwrap_or_default()
+        let all_favorites: Vec<Favorite> = serde_yaml::from_str(&contents).unwrap_or_default();
+        let original_count = all_favorites.len();
+
+        // Filter out favorites where the path no longer exists
+        let valid_favorites: Vec<Favorite> = all_favorites
+            .into_iter()
+            .filter(|fav| fav.path.exists())
+            .collect();
+
+        // If we filtered any out, save the cleaned list
+        if valid_favorites.len() != original_count {
+            save(&valid_favorites);
+        }
+
+        valid_favorites
     } else {
         Vec::new()
     }

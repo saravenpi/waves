@@ -137,7 +137,9 @@ pub fn group_by_artist(audio_files: &[PathBuf]) -> Vec<(String, Vec<PathBuf>)> {
 
     for file in audio_files {
         let (_title, artist, _album, _date, _track, _duration) = extract_metadata(file);
-        let artist_name = artist.unwrap_or_else(|| "Unknown Artist".to_string());
+        let artist_name = artist
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "Unknown Artist".to_string());
         artist_map.entry(artist_name).or_insert_with(Vec::new).push(file.clone());
     }
 
@@ -151,7 +153,9 @@ pub fn group_by_album(audio_files: &[PathBuf]) -> Vec<(String, Vec<PathBuf>)> {
 
     for file in audio_files {
         let (_title, _artist, album, _date, _track, _duration) = extract_metadata(file);
-        let album_name = album.unwrap_or_else(|| "Unknown Album".to_string());
+        let album_name = album
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "Unknown Album".to_string());
         album_map.entry(album_name).or_insert_with(Vec::new).push(file.clone());
     }
 

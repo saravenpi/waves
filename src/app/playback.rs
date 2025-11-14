@@ -167,6 +167,8 @@ impl WavesApp {
     /// # Arguments
     /// * `ctx` - egui context for UI updates
     pub fn play_next_song(&mut self, ctx: &egui::Context) {
+        use crate::types::{BrowsingMode, GroupedView};
+
         if self.columns.is_empty() || self.columns[0].entries.is_empty() {
             return;
         }
@@ -176,6 +178,21 @@ impl WavesApp {
             .map(|state| state.current_file.clone());
 
         if let Some(current) = current_file {
+            match self.browsing_mode {
+                BrowsingMode::ByArtist | BrowsingMode::ByAlbum => {
+                    if matches!(self.grouped_view, GroupedView::TrackList(_)) && !self.current_group_tracks.is_empty() {
+                        if let Some(pos) = self.current_group_tracks.iter().position(|p| p == &current) {
+                            let next_pos = (pos + 1) % self.current_group_tracks.len();
+                            self.columns[0].selected = next_pos;
+                            let next_track = self.current_group_tracks[next_pos].clone();
+                            self.play_file(&next_track, ctx);
+                            return;
+                        }
+                    }
+                }
+                _ => {}
+            }
+
             let audio_files: Vec<(usize, PathBuf)> = self.columns[0].entries.iter().enumerate()
                 .filter_map(|(idx, entry)| {
                     if entry.is_dir {
@@ -215,6 +232,8 @@ impl WavesApp {
     /// # Arguments
     /// * `ctx` - egui context for UI updates
     pub fn play_previous_song(&mut self, ctx: &egui::Context) {
+        use crate::types::{BrowsingMode, GroupedView};
+
         if self.columns.is_empty() || self.columns[0].entries.is_empty() {
             return;
         }
@@ -224,6 +243,25 @@ impl WavesApp {
             .map(|state| state.current_file.clone());
 
         if let Some(current) = current_file {
+            match self.browsing_mode {
+                BrowsingMode::ByArtist | BrowsingMode::ByAlbum => {
+                    if matches!(self.grouped_view, GroupedView::TrackList(_)) && !self.current_group_tracks.is_empty() {
+                        if let Some(pos) = self.current_group_tracks.iter().position(|p| p == &current) {
+                            let prev_pos = if pos == 0 {
+                                self.current_group_tracks.len() - 1
+                            } else {
+                                pos - 1
+                            };
+                            self.columns[0].selected = prev_pos;
+                            let prev_track = self.current_group_tracks[prev_pos].clone();
+                            self.play_file(&prev_track, ctx);
+                            return;
+                        }
+                    }
+                }
+                _ => {}
+            }
+
             let audio_files: Vec<(usize, PathBuf)> = self.columns[0].entries.iter().enumerate()
                 .filter_map(|(idx, entry)| {
                     if entry.is_dir {

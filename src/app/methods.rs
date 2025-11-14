@@ -1,5 +1,5 @@
 use crate::app::{WavesApp, CacheResult};
-use crate::types::{Column, FileEntry, BrowsingMode};
+use crate::types::{Column, FileEntry, BrowsingMode, GroupedView};
 use crate::file_operations::browser::{read_directory, collect_all_audio_files, group_by_artist, group_by_album};
 use std::sync::mpsc::channel;
 
@@ -54,20 +54,37 @@ impl WavesApp {
                     });
                 }
 
-                if let Some(ref artists) = self.artist_groups_cache {
-                    artists.iter().map(|(artist, _)| {
-                        FileEntry {
-                            name: format!("🎤 {}", artist),
-                            path: self.root_dir.join(artist),
-                            is_dir: true,
+                match &self.grouped_view {
+                    GroupedView::GroupList => {
+                        if let Some(ref artists) = self.artist_groups_cache {
+                            artists.iter().map(|(artist, _)| {
+                                FileEntry {
+                                    name: format!("🎤 {}", artist),
+                                    path: self.root_dir.join(artist),
+                                    is_dir: true,
+                                }
+                            }).collect()
+                        } else {
+                            vec![FileEntry {
+                                name: "Loading artists...".to_string(),
+                                path: self.root_dir.clone(),
+                                is_dir: true,
+                            }]
                         }
-                    }).collect()
-                } else {
-                    vec![FileEntry {
-                        name: "Loading artists...".to_string(),
-                        path: self.root_dir.clone(),
-                        is_dir: true,
-                    }]
+                    }
+                    GroupedView::TrackList(_) => {
+                        self.current_group_tracks.iter().enumerate().map(|(idx, path)| {
+                            let name = path.file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
+                            FileEntry {
+                                name: format!("{}. {}", idx + 1, name),
+                                path: path.clone(),
+                                is_dir: false,
+                            }
+                        }).collect()
+                    }
                 }
             }
             BrowsingMode::ByAlbum => {
@@ -87,20 +104,37 @@ impl WavesApp {
                     });
                 }
 
-                if let Some(ref albums) = self.album_groups_cache {
-                    albums.iter().map(|(album, _)| {
-                        FileEntry {
-                            name: format!("💿 {}", album),
-                            path: self.root_dir.join(album),
-                            is_dir: true,
+                match &self.grouped_view {
+                    GroupedView::GroupList => {
+                        if let Some(ref albums) = self.album_groups_cache {
+                            albums.iter().map(|(album, _)| {
+                                FileEntry {
+                                    name: format!("💿 {}", album),
+                                    path: self.root_dir.join(album),
+                                    is_dir: true,
+                                }
+                            }).collect()
+                        } else {
+                            vec![FileEntry {
+                                name: "Loading albums...".to_string(),
+                                path: self.root_dir.clone(),
+                                is_dir: true,
+                            }]
                         }
-                    }).collect()
-                } else {
-                    vec![FileEntry {
-                        name: "Loading albums...".to_string(),
-                        path: self.root_dir.clone(),
-                        is_dir: true,
-                    }]
+                    }
+                    GroupedView::TrackList(_) => {
+                        self.current_group_tracks.iter().enumerate().map(|(idx, path)| {
+                            let name = path.file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
+                            FileEntry {
+                                name: format!("{}. {}", idx + 1, name),
+                                path: path.clone(),
+                                is_dir: false,
+                            }
+                        }).collect()
+                    }
                 }
             }
             BrowsingMode::AllSongs => {

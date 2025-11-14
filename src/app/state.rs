@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::types::{Column, ClipboardOperation, Favorite, SidebarView, BrowsingMode};
+use crate::types::{Column, ClipboardOperation, Favorite, SidebarView, BrowsingMode, GroupedView};
 use crate::audio::PlayerState;
 use crate::file_operations::SearchResult;
 use crate::ui::input::MetadataEditor;
@@ -66,6 +66,8 @@ pub struct WavesApp {
     pub cache_receiver: Option<Receiver<CacheResult>>,
     pub startup_animation: bool,
     pub startup_time: std::time::Instant,
+    pub grouped_view: GroupedView,
+    pub current_group_tracks: Vec<PathBuf>,
 }
 
 pub enum CacheResult {
@@ -209,6 +211,8 @@ impl WavesApp {
             cache_receiver: None,
             startup_animation: true,
             startup_time: std::time::Instant::now(),
+            grouped_view: GroupedView::GroupList,
+            current_group_tracks: Vec::new(),
         };
 
         app.update_columns();

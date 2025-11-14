@@ -8,7 +8,7 @@ use crate::config::SidebarPosition;
 use crate::types::{FileEntry, Favorite, ClipboardOperation, SidebarView};
 use crate::ui::helpers::{ContextMenuAction, show_text_prompt, show_context_menu};
 use crate::ui::input::MetadataEditor;
-use crate::ui::components::ConfirmDialog;
+use crate::ui::components::{ConfirmDialog, IconButton, Select};
 use crate::utils::{format_duration, truncate_text};
 use crate::metadata::{extract_metadata, save_audio_metadata};
 use crate::favorites;
@@ -348,30 +348,45 @@ impl eframe::App for WavesApp {
             return;
         }
 
+        let mut keys_to_handle = Vec::new();
+        let mut dropped_files = Vec::new();
+
+        // Check if search bar has focus
+        let search_has_focus = ctx.memory(|m| m.has_focus(egui::Id::new("main_search_bar")));
+
         ctx.input(|i| {
             for event in &i.events {
                 if let egui::Event::Key { key, pressed: true, modifiers, .. } = event {
                     if self.metadata_editor.is_some() || self.new_folder_prompt.is_some() ||
-                       self.rename_prompt.is_some() || self.search_open {
+                       self.rename_prompt.is_some() || search_has_focus {
                         continue;
                     }
 
-                    if *key == egui::Key::F && (modifiers.command || modifiers.ctrl) {
-                        self.search_open = !self.search_open;
-                        if self.search_open {
-                            self.search_just_opened = true;
-                        } else {
-                            self.search_query.clear();
-                            self.search_results.clear();
-                        }
+                    if *key == egui::Key::Slash && !modifiers.command && !modifiers.ctrl && !self.animation_fullscreen {
+                        self.search_just_opened = true;
                     } else {
-                        self.handle_navigation(*key, ctx);
+                        keys_to_handle.push(*key);
                     }
                 }
             }
 
             if !i.raw.dropped_files.is_empty() {
-                for file in &i.raw.dropped_files {
+                dropped_files = i.raw.dropped_files.clone();
+            }
+        });
+
+        // Consume Tab key to prevent egui from using it for focus navigation
+        ctx.input_mut(|i| {
+            i.consume_key(egui::Modifiers::NONE, egui::Key::Tab);
+            i.consume_key(egui::Modifiers::SHIFT, egui::Key::Tab);
+        });
+
+        for key in keys_to_handle {
+            self.handle_navigation(key, ctx);
+        }
+
+            if !dropped_files.is_empty() {
+                for file in &dropped_files {
                     if let Some(path) = &file.path {
                         eprintln!("WAVES: File dropped: {:?}", path);
                         if path.exists() {
@@ -397,7 +412,6 @@ impl eframe::App for WavesApp {
                     }
                 }
             }
-        });
 
         let now = std::time::Instant::now();
         if now.duration_since(self.last_folder_check).as_secs() >= 2 {
@@ -467,14 +481,8 @@ impl eframe::App for WavesApp {
                 if self.sidebar_collapsed {
                     ui.vertical_centered(|ui| {
                         ui.add_space(10.0);
-                        let expand_button = egui::Button::new(
-                            egui::RichText::new(expand_arrow).size(20.0).color(egui::Color32::WHITE)
-                        )
-                        .fill(egui::Color32::TRANSPARENT)
-                        .stroke(egui::Stroke::NONE)
-                        .min_size(egui::vec2(30.0, 30.0));
 
-                        let expand_response = ui.add(expand_button);
+                        let expand_response = IconButton::new(expand_arrow).size(20.0).show(ui);
                         expand_response.surrender_focus();
 
                         if expand_response.hovered() {
@@ -515,14 +523,7 @@ impl eframe::App for WavesApp {
                         ui.heading(egui::RichText::new("Waves").size(32.0).color(egui::Color32::WHITE).strong());
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            let collapse_button = egui::Button::new(
-                                egui::RichText::new(collapse_arrow).size(20.0).color(egui::Color32::WHITE)
-                            )
-                            .fill(egui::Color32::TRANSPARENT)
-                            .stroke(egui::Stroke::NONE)
-                            .min_size(egui::vec2(30.0, 30.0));
-
-                            let collapse_response = ui.add(collapse_button);
+                            let collapse_response = IconButton::new(collapse_arrow).size(20.0).show(ui);
                             collapse_response.surrender_focus();
 
                             if collapse_response.hovered() {
@@ -553,10 +554,23 @@ impl eframe::App for WavesApp {
                     egui::vec2(ui.available_width(), browser_height),
                     egui::Layout::top_down(egui::Align::LEFT),
                     |ui| {
-                        let folder_name = self.current_dir.file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("/")
-                            .to_string();
+                        use crate::types::GroupedView;
+
+                        let mut clicked_sidebar_view = None;
+
+                        let sidebar_options = vec![
+                            ("📁".to_string(), "Browser".to_string()),
+                            ("⭐".to_string(), "Favorites".to_string()),
+                            ("⚙".to_string(), "Settings".to_string()),
+                        ];
+
+                        let sidebar_index = match self.sidebar_view {
+                            SidebarView::FileBrowser => 0,
+                            SidebarView::Favorites => 1,
+                            SidebarView::Settings => 2,
+                        };
+
+                        let primary_color = self.primary_color();
 
                         ui.allocate_ui_with_layout(
                             egui::vec2(ui.available_width(), 30.0),
@@ -564,113 +578,133 @@ impl eframe::App for WavesApp {
                             |ui| {
                                 ui.add_space(2.0);
 
-                                let at_root = self.current_dir == self.root_dir;
-                                if !at_root {
-                                    let text_color = egui::Color32::from_rgb(150, 150, 150);
-                                    let back_button = egui::Button::new(
-                                        egui::RichText::new("<")
-                                            .size(14.0)
-                                            .color(text_color)
-                                    )
-                                    .fill(egui::Color32::TRANSPARENT)
-                                    .stroke(egui::Stroke::NONE)
-                                    .rounding(0.0)
-                                    .min_size(egui::vec2(30.0, 25.0));
-
-                                    let back_response = ui.add(back_button);
-
-                                    if back_response.clicked() {
-                                        back_button_clicked = true;
-                                    }
-
-                                    if back_response.is_pointer_button_down_on() {
-                                        ui.painter().rect_filled(
-                                            back_response.rect,
-                                            0.0,
-                                            egui::Color32::WHITE,
-                                        );
-                                        ui.painter().text(
-                                            back_response.rect.center(),
-                                            egui::Align2::CENTER_CENTER,
-                                            "<",
-                                            egui::FontId::proportional(14.0),
-                                            egui::Color32::BLACK,
-                                        );
-                                    } else if back_response.hovered() {
-                                        ui.painter().rect_stroke(
-                                            back_response.rect,
-                                            0.0,
-                                            egui::Stroke::new(1.0, egui::Color32::WHITE),
-                                        );
-                                    }
-
-                                    ui.add_space(5.0);
-                                }
-                                ui.label(
-                                    egui::RichText::new(folder_name)
-                                        .size(14.0)
-                                        .color(egui::Color32::from_rgb(150, 150, 150))
-                                );
-
-                                let mut search_clicked = false;
-
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                ui.add_space(2.0);
-
-                                ui.add_space(5.0);
-
-                                let search_button = egui::Button::new(
-                                    egui::RichText::new("🔍")
-                                        .size(18.0)
-                                )
-                                .fill(egui::Color32::TRANSPARENT)
-                                .stroke(egui::Stroke::NONE)
-                                .min_size(egui::vec2(45.0, 30.0));
-
-                                let search_response = ui.add(search_button);
-
-                                if search_response.hovered() {
-                                    let rect = search_response.rect;
-                                    ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
-                                }
-
-                                if search_response.clicked() {
-                                    search_clicked = true;
-                                }
-
-                                ui.add_space(5.0);
-
-                                let section_text = match self.sidebar_view {
-                                    SidebarView::FileBrowser => "File Browser",
-                                    SidebarView::Favorites => "Favorites",
-                                    SidebarView::Settings => "Settings",
-                                };
-
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new(section_text).size(14.0).color(egui::Color32::from_rgb(150, 150, 150)));
-
-                                    if matches!(self.sidebar_view, SidebarView::FileBrowser) {
-                                        ui.add_space(3.0);
-                                        ui.label(egui::RichText::new(format!("({})", self.browsing_mode.to_string())).size(11.0).color(self.primary_color()));
-                                    }
-                                });
+                                let (_, clicked) = Select::new(sidebar_options, sidebar_index)
+                                    .show(ui, primary_color);
+                                clicked_sidebar_view = clicked;
                             });
 
-                            if search_clicked {
-                                self.search_open = !self.search_open;
-                                if self.search_open {
-                                    self.search_just_opened = true;
-                                } else {
-                                    self.search_query.clear();
-                                    self.search_results.clear();
-                                }
-                            }
-                        });
+                        if let Some(idx) = clicked_sidebar_view {
+                            match idx {
+                                0 => self.sidebar_view = SidebarView::FileBrowser,
+                                1 => self.sidebar_view = SidebarView::Favorites,
+                                2 => self.sidebar_view = SidebarView::Settings,
+                                _ => {}
+                            };
+                        }
                         ui.add_space(5.0);
                         ui.separator();
                         ui.add_space(5.0);
 
-                        let header_height = 35.0;
+                        let mut header_height = 75.0;
+
+                        match self.sidebar_view {
+                            SidebarView::FileBrowser => {
+                                use crate::types::BrowsingMode;
+
+                                let folder_name = match self.browsing_mode {
+                                    BrowsingMode::ByArtist | BrowsingMode::ByAlbum => {
+                                        match &self.grouped_view {
+                                            GroupedView::TrackList(group_name) => {
+                                                group_name.trim_start_matches("🎤 ").trim_start_matches("💿 ").to_string()
+                                            }
+                                            GroupedView::GroupList => {
+                                                if self.browsing_mode == BrowsingMode::ByArtist {
+                                                    "All Artists".to_string()
+                                                } else {
+                                                    "All Albums".to_string()
+                                                }
+                                            }
+                                        }
+                                    }
+                                    BrowsingMode::AllSongs => "All Songs".to_string(),
+                                    BrowsingMode::FileStructure => {
+                                        self.current_dir.file_name()
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("/")
+                                            .to_string()
+                                    }
+                                };
+
+                                let show_back = match self.browsing_mode {
+                                    BrowsingMode::FileStructure => self.current_dir != self.root_dir,
+                                    BrowsingMode::ByArtist | BrowsingMode::ByAlbum => {
+                                        matches!(self.grouped_view, GroupedView::TrackList(_))
+                                    }
+                                    BrowsingMode::AllSongs => false,
+                                };
+
+                                ui.horizontal(|ui| {
+                                    ui.add_space(2.0);
+
+                                    if show_back {
+                                        let text_color = egui::Color32::from_rgb(150, 150, 150);
+                                        let back_response = IconButton::new("<").size(14.0).color(text_color).show(ui);
+
+                                        if back_response.clicked() {
+                                            back_button_clicked = true;
+                                        }
+
+                                        if back_response.hovered() {
+                                            ui.painter().rect_stroke(
+                                                back_response.rect,
+                                                0.0,
+                                                egui::Stroke::new(1.0, egui::Color32::WHITE),
+                                            );
+                                        }
+
+                                        ui.add_space(5.0);
+                                    }
+
+                                    ui.label(
+                                        egui::RichText::new(folder_name)
+                                            .size(14.0)
+                                            .color(egui::Color32::from_rgb(150, 150, 150))
+                                    );
+                                });
+
+                                ui.add_space(5.0);
+                                ui.separator();
+                                ui.add_space(5.0);
+
+                                let browsing_options = vec![
+                                    ("📂".to_string(), "Folders".to_string()),
+                                    ("🎤".to_string(), "Artists".to_string()),
+                                    ("💿".to_string(), "Albums".to_string()),
+                                    ("🎵".to_string(), "All Songs".to_string()),
+                                ];
+
+                                let browsing_index = match self.browsing_mode {
+                                    BrowsingMode::FileStructure => 0,
+                                    BrowsingMode::ByArtist => 1,
+                                    BrowsingMode::ByAlbum => 2,
+                                    BrowsingMode::AllSongs => 3,
+                                };
+
+                                let (_, clicked_browsing) = Select::new(browsing_options, browsing_index)
+                                    .show(ui, self.primary_color());
+
+                                if let Some(idx) = clicked_browsing {
+                                    let new_mode = match idx {
+                                        0 => BrowsingMode::FileStructure,
+                                        1 => BrowsingMode::ByArtist,
+                                        2 => BrowsingMode::ByAlbum,
+                                        3 => BrowsingMode::AllSongs,
+                                        _ => self.browsing_mode,
+                                    };
+                                    if new_mode != self.browsing_mode {
+                                        self.browsing_mode = new_mode;
+                                        self.grouped_view = crate::types::GroupedView::GroupList;
+                                        self.current_group_tracks.clear();
+                                        self.update_columns_with_selection(Some(0));
+                                    }
+                                }
+
+                                ui.add_space(5.0);
+                                header_height = 110.0;
+                            }
+                            _ => {}
+                        }
+
                         let list_height = browser_height - header_height;
 
                         match self.sidebar_view {
@@ -678,11 +712,14 @@ impl eframe::App for WavesApp {
                         if !self.columns.is_empty() {
                             let column = &self.columns[0];
 
-                            egui::ScrollArea::vertical()
+                            let scroll_area = egui::ScrollArea::vertical()
                                 .auto_shrink([false, false])
+                                .min_scrolled_height(list_height)
                                 .max_height(list_height)
                                 .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-                                .show(ui, |ui| {
+                                .id_salt("file_browser_scroll");
+
+                            scroll_area.show(ui, |ui| {
                                     let available_width = ui.available_width();
                                     let max_chars = ((available_width - 10.0) / 10.5) as usize;
 
@@ -714,6 +751,11 @@ impl eframe::App for WavesApp {
                                             egui::Sense::click()
                                         );
 
+                                        // Auto-scroll to selected item on keyboard navigation
+                                        if is_selected {
+                                            ui.scroll_to_rect(rect, Some(egui::Align::Center));
+                                        }
+
                                         if response.clicked() {
                                             clicked_entry = Some((idx, entry.clone()));
                                         }
@@ -726,7 +768,13 @@ impl eframe::App for WavesApp {
 
                                         let is_hovered = response.hovered();
 
-                                        let icon = if entry.is_dir {
+                                        let name_has_emoji = entry.name.starts_with("🎤 ")
+                                            || entry.name.starts_with("💿 ")
+                                            || entry.name.starts_with("🎵 ");
+
+                                        let icon = if name_has_emoji {
+                                            ""
+                                        } else if entry.is_dir {
                                             "📁"
                                         } else {
                                             "🎵"
@@ -735,7 +783,11 @@ impl eframe::App for WavesApp {
                                         let display_name = truncate_text(&entry.name, max_chars.saturating_sub(4));
                                         let is_favorited = self.favorites.iter().any(|f| f.path == entry.path);
                                         let star = if is_favorited { "* " } else { "" };
-                                        let display_text = format!(" {}{} {}", star, icon, display_name);
+                                        let display_text = if icon.is_empty() {
+                                            format!(" {}{}", star, display_name)
+                                        } else {
+                                            format!(" {}{} {}", star, icon, display_name)
+                                        };
 
                                         let is_in_clipboard = self.clipboard.as_ref()
                                             .map(|(path, _)| path == &entry.path)
@@ -796,15 +848,33 @@ impl eframe::App for WavesApp {
                                 let mut clicked_favorite: Option<usize> = None;
                                 let mut context_menu_event: Option<(PathBuf, egui::Pos2)> = None;
 
-                                egui::ScrollArea::vertical()
-                                    .auto_shrink([false, false])
-                                    .max_height(list_height)
-                                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-                                    .show(ui, |ui| {
-                                        let available_width = ui.available_width();
-                                        let max_chars = ((available_width - 10.0) / 10.5) as usize;
+                                if favorites_clone.is_empty() {
+                                    ui.vertical_centered(|ui| {
+                                        ui.add_space(50.0);
+                                        ui.label(
+                                            egui::RichText::new("No favorites yet")
+                                                .size(16.0)
+                                                .color(egui::Color32::from_rgb(150, 150, 150))
+                                        );
+                                        ui.add_space(10.0);
+                                        ui.label(
+                                            egui::RichText::new("Press 'f' to add audio files to favorites")
+                                                .size(14.0)
+                                                .color(egui::Color32::from_rgb(120, 120, 120))
+                                        );
+                                    });
+                                } else {
+                                    egui::ScrollArea::vertical()
+                                        .auto_shrink([false, false])
+                                        .min_scrolled_height(list_height)
+                                        .max_height(list_height)
+                                        .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+                                        .id_salt("favorites_scroll")
+                                        .show(ui, |ui| {
+                                            let available_width = ui.available_width();
+                                            let max_chars = ((available_width - 10.0) / 10.5) as usize;
 
-                                        for (idx, fav) in favorites_clone.iter().enumerate() {
+                                            for (idx, fav) in favorites_clone.iter().enumerate() {
                                             let is_selected = idx == selected;
 
                                             let is_playing_or_parent = if let Some(playing_path) = &current_playing_file {
@@ -823,6 +893,11 @@ impl eframe::App for WavesApp {
                                                 egui::vec2(available_width, 25.0),
                                                 egui::Sense::click()
                                             );
+
+                                            // Auto-scroll to selected item on keyboard navigation
+                                            if is_selected {
+                                                ui.scroll_to_rect(rect, Some(egui::Align::Center));
+                                            }
 
                                             if response.clicked() {
                                                 clicked_favorite = Some(idx);
@@ -888,22 +963,23 @@ impl eframe::App for WavesApp {
                                         }
                                     });
 
-                                if let Some((path, pos)) = context_menu_event {
-                                    self.context_menu = Some((path, pos));
-                                }
+                                    if let Some((path, pos)) = context_menu_event {
+                                        self.context_menu = Some((path, pos));
+                                    }
 
-                                if let Some(idx) = clicked_favorite {
-                                    self.favorites_selected = idx;
-                                    if let Some(fav) = favorites_clone.get(idx) {
-                                        if fav.is_dir {
-                                            self.current_dir = fav.path.clone();
-                                            self.update_columns_with_selection(Some(0));
-                                            self.sidebar_view = SidebarView::FileBrowser;
+                                    if let Some(idx) = clicked_favorite {
+                                        self.favorites_selected = idx;
+                                        if let Some(fav) = favorites_clone.get(idx) {
+                                            if fav.is_dir {
+                                                self.current_dir = fav.path.clone();
+                                                self.update_columns_with_selection(Some(0));
+                                                self.sidebar_view = SidebarView::FileBrowser;
                                         } else {
                                             self.playback_context = SidebarView::Favorites;
                                             self.play_file(&fav.path, ctx);
                                         }
                                     }
+                                }
                                 }
                             }
                             SidebarView::Settings => {
@@ -913,7 +989,9 @@ impl eframe::App for WavesApp {
 
                                 egui::ScrollArea::vertical()
                                     .auto_shrink([false, false])
+                                    .min_scrolled_height(list_height)
                                     .max_height(list_height)
+                                    .id_salt("settings_scroll")
                                     .show(ui, |ui| {
                                         ui.add_space(10.0);
 
@@ -1466,21 +1544,38 @@ impl eframe::App for WavesApp {
                 }
 
                 if back_button_clicked {
-                    if let Some(parent) = self.current_dir.parent() {
-                        if parent >= self.root_dir.as_path() {
-                            self.current_dir = parent.to_path_buf();
-                            self.update_columns_with_selection(Some(0));
+                    use crate::types::{BrowsingMode, GroupedView};
+
+                    match self.browsing_mode {
+                        BrowsingMode::FileStructure => {
+                            if let Some(parent) = self.current_dir.parent() {
+                                if parent >= self.root_dir.as_path() {
+                                    self.current_dir = parent.to_path_buf();
+                                    self.update_columns_with_selection(Some(0));
+                                }
+                            }
                         }
+                        BrowsingMode::ByArtist | BrowsingMode::ByAlbum => {
+                            if matches!(self.grouped_view, GroupedView::TrackList(_)) {
+                                self.grouped_view = GroupedView::GroupList;
+                                self.current_group_tracks.clear();
+                                self.update_columns_with_selection(Some(0));
+                            }
+                        }
+                        BrowsingMode::AllSongs => {}
                     }
                 }
 
             });
 
         if !self.sidebar_collapsed {
-            let new_width = sidebar_response.response.rect.width().max(250.0).min(800.0);
-            if (new_width - self.config.sidebar_width).abs() > 1.0 {
-                self.config.sidebar_width = new_width;
-                let _ = self.config.save();
+            // Only update width when user is actively resizing (dragging)
+            if ctx.input(|i| i.pointer.any_down()) {
+                let new_width = sidebar_response.response.rect.width().max(250.0).min(800.0);
+                if (new_width - self.config.sidebar_width).abs() > 1.0 {
+                    self.config.sidebar_width = new_width;
+                    let _ = self.config.save();
+                }
             }
         }
 
@@ -1489,6 +1584,169 @@ impl eframe::App for WavesApp {
         egui::CentralPanel::default()
             .frame(egui::Frame::default().fill(egui::Color32::from_black_alpha(central_opacity)))
             .show(ctx, |ui| {
+                let primary_color = self.primary_color();
+
+                if !self.animation_fullscreen {
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.0);
+
+                        // Calculate proper width for search bar with right padding
+                        let search_bar_width = ui.available_width() - 10.0;
+
+                        // Custom styled search bar with border
+                        let search_frame = egui::Frame {
+                            fill: egui::Color32::from_rgb(20, 20, 20),
+                            stroke: egui::Stroke::new(1.0, primary_color),
+                            inner_margin: egui::Margin::symmetric(8.0, 6.0),
+                            rounding: egui::Rounding::same(0.0),
+                            ..Default::default()
+                        };
+
+                        search_frame.show(ui, |ui| {
+                            let search_response = ui.add_sized(
+                                [search_bar_width - 16.0, 18.0], // Subtract inner margin
+                                egui::TextEdit::singleline(&mut self.search_query)
+                                    .hint_text("🔍 Search files...")
+                                    .frame(false)
+                                    .id(egui::Id::new("main_search_bar"))
+                            );
+
+                            // Handle focus when / was pressed
+                            if self.search_just_opened {
+                                search_response.request_focus();
+                                self.search_just_opened = false;
+                            }
+
+                            // Remove / character if it was typed when opening search
+                            if self.search_query.starts_with('/') {
+                                self.search_query = self.search_query[1..].to_string();
+                            }
+
+                            if !self.search_query.is_empty() {
+                                self.perform_search();
+                            } else {
+                                self.search_results.clear();
+                                self.search_selected = 0;
+                            }
+                        });
+
+                        ui.add_space(10.0);
+                    });
+
+                    // Display search results inline below the search bar
+                    if !self.search_results.is_empty() {
+                        ui.add_space(5.0);
+
+                        // Handle keyboard navigation when search has focus or results are showing
+                        if search_has_focus || !self.search_results.is_empty() {
+                            if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                                if self.search_selected < self.search_results.len().saturating_sub(1) {
+                                    self.search_selected += 1;
+                                }
+                            }
+                            if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                                if self.search_selected > 0 {
+                                    self.search_selected -= 1;
+                                }
+                            }
+                            if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                if let Some(result) = self.search_results.get(self.search_selected) {
+                                    let path = result.path.clone();
+                                    self.play_file(&path, ctx);
+                                    self.search_query.clear();
+                                    self.search_results.clear();
+                                    self.search_selected = 0;
+                                }
+                            }
+                            if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                                self.search_query.clear();
+                                self.search_results.clear();
+                                self.search_selected = 0;
+                            }
+                        }
+
+                        ui.horizontal(|ui| {
+                            ui.add_space(10.0);
+
+                            let mut clicked_result: Option<PathBuf> = None;
+
+                            egui::Frame {
+                                fill: egui::Color32::from_rgb(15, 15, 15),
+                                stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
+                                inner_margin: egui::Margin::same(8.0),
+                                ..Default::default()
+                            }
+                            .show(ui, |ui| {
+                                egui::ScrollArea::vertical()
+                                    .max_height(250.0)
+                                    .auto_shrink([false, false])
+                                    .show(ui, |ui| {
+                                        for (idx, result) in self.search_results.iter().enumerate() {
+                                            let is_selected = idx == self.search_selected;
+
+                                            let display_text = if let Some(ref artist) = result.artist {
+                                                format!("{} - {}", result.title, artist)
+                                            } else {
+                                                result.title.clone()
+                                            };
+
+                                            let album_text = result.album.as_ref()
+                                                .map(|a| format!(" [{}]", a))
+                                                .unwrap_or_default();
+
+                                            let full_text = format!("{}{}", display_text, album_text);
+
+                                            let (rect, response) = ui.allocate_exact_size(
+                                                egui::vec2(ui.available_width(), 28.0),
+                                                egui::Sense::click()
+                                            );
+
+                                            if response.clicked() {
+                                                clicked_result = Some(result.path.clone());
+                                            }
+
+                                            if is_selected {
+                                                ui.painter().rect_filled(
+                                                    rect,
+                                                    0.0,
+                                                    egui::Color32::WHITE
+                                                );
+                                            }
+
+                                            let text_color = if is_selected {
+                                                egui::Color32::BLACK
+                                            } else {
+                                                egui::Color32::from_rgb(200, 200, 200)
+                                            };
+
+                                            ui.painter().text(
+                                                rect.left_top() + egui::vec2(8.0, 6.0),
+                                                egui::Align2::LEFT_TOP,
+                                                &full_text,
+                                                egui::FontId::proportional(13.0),
+                                                text_color
+                                            );
+                                        }
+                                    });
+                            });
+
+                            if let Some(path) = clicked_result {
+                                self.play_file(&path, ctx);
+                                self.search_query.clear();
+                                self.search_results.clear();
+                                self.search_selected = 0;
+                            }
+
+                            ui.add_space(10.0);
+                        });
+
+                        ui.add_space(5.0);
+                    } else {
+                        ui.add_space(10.0);
+                    }
+                }
+
                 let player_info = if is_playing {
                     let player = self.player.lock().unwrap();
                     player.as_ref().map(|state| {
@@ -1501,7 +1759,7 @@ impl eframe::App for WavesApp {
                 if let Some((title, artist, duration, waveform, album_cover)) = player_info {
                     let total_height = ui.available_height();
                     let bottom_panel_height = 200.0;
-                    let spectrum_height = total_height - bottom_panel_height;
+                    let spectrum_height = total_height - bottom_panel_height - 45.0;
 
                     if self.config.animation {
                         let (spectrum_rect, spectrum_response) = ui.allocate_exact_size(
@@ -1621,10 +1879,7 @@ impl eframe::App for WavesApp {
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                     ui.add_space(20.0);
 
-                                    let next_button = egui::Button::new(egui::RichText::new("⏭").size(28.0).color(egui::Color32::WHITE))
-                                        .fill(egui::Color32::TRANSPARENT)
-                                        .stroke(egui::Stroke::NONE);
-                                    let next_response = ui.add(next_button);
+                                    let next_response = IconButton::new("⏭").show(ui);
                                     next_response.surrender_focus();
                                     if next_response.hovered() {
                                         let rect = next_response.rect;
@@ -1648,10 +1903,7 @@ impl eframe::App for WavesApp {
                                     ui.add_space(8.0);
 
                                     let pause_play_text = if is_paused { "▶" } else { "⏸" };
-                                    let play_pause_button = egui::Button::new(egui::RichText::new(pause_play_text).size(28.0).color(egui::Color32::WHITE))
-                                        .fill(egui::Color32::TRANSPARENT)
-                                        .stroke(egui::Stroke::NONE);
-                                    let play_pause_response = ui.add(play_pause_button);
+                                    let play_pause_response = IconButton::new(pause_play_text).show(ui);
                                     play_pause_response.surrender_focus();
                                     if play_pause_response.hovered() {
                                         let rect = play_pause_response.rect;
@@ -1679,10 +1931,7 @@ impl eframe::App for WavesApp {
                                     } else {
                                         egui::Color32::WHITE
                                     };
-                                    let loop_button = egui::Button::new(egui::RichText::new("🔁").size(24.0).color(loop_color))
-                                        .fill(egui::Color32::TRANSPARENT)
-                                        .stroke(egui::Stroke::NONE);
-                                    let loop_response = ui.add(loop_button);
+                                    let loop_response = IconButton::new("🔁").size(24.0).color(loop_color).show(ui);
                                     loop_response.surrender_focus();
                                     if loop_response.hovered() {
                                         let rect = loop_response.rect;
@@ -1705,10 +1954,7 @@ impl eframe::App for WavesApp {
 
                                     ui.add_space(8.0);
 
-                                    let prev_button = egui::Button::new(egui::RichText::new("⏮").size(28.0).color(egui::Color32::WHITE))
-                                        .fill(egui::Color32::TRANSPARENT)
-                                        .stroke(egui::Stroke::NONE);
-                                    let prev_response = ui.add(prev_button);
+                                    let prev_response = IconButton::new("⏮").show(ui);
                                     prev_response.surrender_focus();
                                     if prev_response.hovered() {
                                         let rect = prev_response.rect;
@@ -2263,6 +2509,7 @@ impl eframe::App for WavesApp {
                                     title: result.title.clone(),
                                     artist: result.artist.clone(),
                                     album: result.album.clone(),
+                                    relevance: result.relevance,
                                 });
                             }
                         }
@@ -2304,6 +2551,7 @@ impl eframe::App for WavesApp {
                                                 title: result.title.clone(),
                                                 artist: result.artist.clone(),
                                                 album: result.album.clone(),
+                                                relevance: result.relevance,
                                             });
                                         }
 
@@ -2393,8 +2641,12 @@ impl eframe::App for WavesApp {
                         self.clipboard = Some((path.clone(), ClipboardOperation::Cut));
                     }
                     ContextMenuAction::ToggleFavorite => {
-                        if let Some(idx) = self.favorites.iter().position(|f| f.path == *path) {
+                        // Only allow favoriting audio files, not directories
+                        if is_dir {
+                            // Do nothing for directories
+                        } else if let Some(idx) = self.favorites.iter().position(|f| f.path == *path) {
                             self.favorites.remove(idx);
+                            let _ = favorites::save(&self.favorites);
                         } else {
                             let name = path.file_name()
                                 .unwrap_or_default()
@@ -2403,11 +2655,11 @@ impl eframe::App for WavesApp {
                             self.favorites.push(Favorite {
                                 path: path.clone(),
                                 name,
-                                is_dir,
+                                is_dir: false,
                                 timestamp: SystemTime::now(),
                             });
+                            let _ = favorites::save(&self.favorites);
                         }
-                        let _ = favorites::save(&self.favorites);
                     }
                     ContextMenuAction::EditMetadata => {
                         let (title, artist, _album, date, _track, _duration) = extract_metadata(path);

@@ -1,5 +1,5 @@
 use crate::app::WavesApp;
-use crate::types::{FileEntry, ClipboardOperation, Favorite, SidebarView, BrowsingMode};
+use crate::types::{FileEntry, ClipboardOperation, Favorite, SidebarView, BrowsingMode, GroupedView};
 use crate::metadata::extract_metadata;
 use crate::ui::input::MetadataEditor;
 use eframe::egui;
@@ -91,9 +91,16 @@ impl WavesApp {
                                         self.update_columns_with_selection(Some(0));
                                     }
                                     BrowsingMode::ByArtist | BrowsingMode::ByAlbum => {
-                                        let files = self.get_files_for_group(&entry.name);
-                                        if !files.is_empty() {
-                                            self.play_file(&files[0], ctx);
+                                        if matches!(self.grouped_view, GroupedView::GroupList) {
+                                            let files = self.get_files_for_group(&entry.name);
+                                            if !files.is_empty() {
+                                                self.current_group_tracks = files.clone();
+                                                let group_name = entry.name.clone();
+                                                self.grouped_view = GroupedView::TrackList(group_name);
+                                                self.update_columns_with_selection(Some(0));
+                                                let first_track = self.current_group_tracks[0].clone();
+                                                self.play_file(&first_track, ctx);
+                                            }
                                         }
                                     }
                                     BrowsingMode::AllSongs => {}
@@ -115,6 +122,7 @@ impl WavesApp {
                         }
                     }
                     SidebarView::Settings => {
+                        let mut changed = false;
                         match self.settings_focused_item {
                             0 => {
                                 let preset_colors = vec![
@@ -125,15 +133,26 @@ impl WavesApp {
                                     let next_idx = (current_idx + 1) % preset_colors.len();
                                     self.config.primary_color = preset_colors[next_idx].to_string();
                                     let _ = self.config.save();
+                                    changed = true;
+                                }
+                            }
+                            1 => {
+                                let old_opacity = self.config.window_opacity;
+                                self.config.window_opacity = (self.config.window_opacity + 5.0).min(100.0);
+                                if (self.config.window_opacity - old_opacity).abs() > 0.01 {
+                                    let _ = self.config.save();
+                                    changed = true;
                                 }
                             }
                             2 => {
                                 self.config.show_status_bar = !self.config.show_status_bar;
                                 let _ = self.config.save();
+                                changed = true;
                             }
                             3 => {
                                 self.config.animation = !self.config.animation;
                                 let _ = self.config.save();
+                                changed = true;
                             }
                             4 => {
                                 if self.config.animation {
@@ -144,6 +163,7 @@ impl WavesApp {
                                         AnimationType::CircleSpectrum => AnimationType::Spectrum,
                                     };
                                     let _ = self.config.save();
+                                    changed = true;
                                 }
                             }
                             5 => {
@@ -153,34 +173,62 @@ impl WavesApp {
                                     SidebarPosition::Right => SidebarPosition::Left,
                                 };
                                 let _ = self.config.save();
+                                changed = true;
                             }
                             6 => {
                                 self.config.ui_sounds_enabled = !self.config.ui_sounds_enabled;
                                 let _ = self.config.save();
+                                changed = true;
+                            }
+                            7 => {
+                                if self.config.ui_sounds_enabled {
+                                    let old_volume = self.config.ui_sounds_volume;
+                                    self.config.ui_sounds_volume = (self.config.ui_sounds_volume + 0.05).min(1.0);
+                                    if (self.config.ui_sounds_volume - old_volume).abs() > 0.001 {
+                                        let _ = self.config.save();
+                                        changed = true;
+                                    }
+                                }
                             }
                             8 => {
                                 self.config.startup_sound_enabled = !self.config.startup_sound_enabled;
                                 let _ = self.config.save();
+                                changed = true;
                             }
                             _ => {}
+                        }
+                        if changed {
+                            crate::cursor_sound::play_cursor_sound(
+                                self.config.ui_sounds_enabled,
+                                self.config.ui_sounds_volume
+                            );
                         }
                     }
                 }
             }
             egui::Key::H => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
+                let mut changed = false;
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
-                        if self.browsing_mode == BrowsingMode::FileStructure {
-                            if let Some(parent) = self.current_dir.parent() {
-                                if parent >= self.root_dir.as_path() {
-                                    self.current_dir = parent.to_path_buf();
-                                    self.update_columns();
+                        match self.browsing_mode {
+                            BrowsingMode::FileStructure => {
+                                if let Some(parent) = self.current_dir.parent() {
+                                    if parent >= self.root_dir.as_path() {
+                                        self.current_dir = parent.to_path_buf();
+                                        self.update_columns();
+                                        changed = true;
+                                    }
                                 }
                             }
+                            BrowsingMode::ByArtist | BrowsingMode::ByAlbum => {
+                                if matches!(self.grouped_view, GroupedView::TrackList(_)) {
+                                    self.grouped_view = GroupedView::GroupList;
+                                    self.current_group_tracks.clear();
+                                    self.update_columns_with_selection(Some(0));
+                                    changed = true;
+                                }
+                            }
+                            BrowsingMode::AllSongs => {}
                         }
                     }
                     SidebarView::Settings => {
@@ -198,19 +246,30 @@ impl WavesApp {
                                     };
                                     self.config.primary_color = preset_colors[prev_idx].to_string();
                                     let _ = self.config.save();
+                                    changed = true;
                                 }
                             }
                             1 => {
+                                let old_opacity = self.config.window_opacity;
                                 self.config.window_opacity = (self.config.window_opacity - 5.0).max(0.0);
-                                let _ = self.config.save();
+                                if (old_opacity - self.config.window_opacity).abs() > 0.01 {
+                                    let _ = self.config.save();
+                                    changed = true;
+                                }
                             }
                             2 => {
-                                self.config.show_status_bar = false;
-                                let _ = self.config.save();
+                                if self.config.show_status_bar {
+                                    self.config.show_status_bar = false;
+                                    let _ = self.config.save();
+                                    changed = true;
+                                }
                             }
                             3 => {
-                                self.config.animation = false;
-                                let _ = self.config.save();
+                                if self.config.animation {
+                                    self.config.animation = false;
+                                    let _ = self.config.save();
+                                    changed = true;
+                                }
                             }
                             4 => {
                                 if self.config.animation {
@@ -221,6 +280,7 @@ impl WavesApp {
                                         AnimationType::WaveformPulse => AnimationType::Spectrum,
                                     };
                                     let _ = self.config.save();
+                                    changed = true;
                                 }
                             }
                             5 => {
@@ -230,19 +290,30 @@ impl WavesApp {
                                     SidebarPosition::Right => SidebarPosition::Left,
                                 };
                                 let _ = self.config.save();
+                                changed = true;
                             }
                             6 => {
-                                self.config.ui_sounds_enabled = false;
-                                let _ = self.config.save();
+                                if self.config.ui_sounds_enabled {
+                                    self.config.ui_sounds_enabled = false;
+                                    let _ = self.config.save();
+                                    changed = true;
+                                }
                             }
                             8 => {
-                                self.config.startup_sound_enabled = false;
-                                let _ = self.config.save();
+                                if self.config.startup_sound_enabled {
+                                    self.config.startup_sound_enabled = false;
+                                    let _ = self.config.save();
+                                    changed = true;
+                                }
                             }
                             7 => {
                                 if self.config.ui_sounds_enabled {
+                                    let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume - 0.05).max(0.0);
-                                    let _ = self.config.save();
+                                    if (old_volume - self.config.ui_sounds_volume).abs() > 0.001 {
+                                        let _ = self.config.save();
+                                        changed = true;
+                                    }
                                 }
                             }
                             _ => {}
@@ -250,14 +321,17 @@ impl WavesApp {
                     }
                     _ => {}
                 }
+                if changed {
+                    crate::cursor_sound::play_cursor_sound(
+                        self.config.ui_sounds_enabled,
+                        self.config.ui_sounds_volume
+                    );
+                }
             }
             egui::Key::ArrowLeft => {
                 match self.sidebar_view {
                     SidebarView::Settings => {
-                        crate::cursor_sound::play_cursor_sound(
-                            self.config.ui_sounds_enabled,
-                            self.config.ui_sounds_volume
-                        );
+                        let mut changed = false;
                         match self.settings_focused_item {
                             0 => {
                                 let preset_colors = vec![
@@ -272,19 +346,34 @@ impl WavesApp {
                                     };
                                     self.config.primary_color = preset_colors[prev_idx].to_string();
                                     let _ = self.config.save();
+                                    changed = true;
                                 }
                             }
                             1 => {
+                                let old_opacity = self.config.window_opacity;
                                 self.config.window_opacity = (self.config.window_opacity - 5.0).max(0.0);
-                                let _ = self.config.save();
+                                if (old_opacity - self.config.window_opacity).abs() > 0.01 {
+                                    let _ = self.config.save();
+                                    changed = true;
+                                }
                             }
                             7 => {
                                 if self.config.ui_sounds_enabled {
+                                    let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume - 0.05).max(0.0);
-                                    let _ = self.config.save();
+                                    if (old_volume - self.config.ui_sounds_volume).abs() > 0.001 {
+                                        let _ = self.config.save();
+                                        changed = true;
+                                    }
                                 }
                             }
                             _ => {}
+                        }
+                        if changed {
+                            crate::cursor_sound::play_cursor_sound(
+                                self.config.ui_sounds_enabled,
+                                self.config.ui_sounds_volume
+                            );
                         }
                     }
                     SidebarView::Favorites => {
@@ -308,10 +397,7 @@ impl WavesApp {
             egui::Key::ArrowRight => {
                 match self.sidebar_view {
                     SidebarView::Settings => {
-                        crate::cursor_sound::play_cursor_sound(
-                            self.config.ui_sounds_enabled,
-                            self.config.ui_sounds_volume
-                        );
+                        let mut changed = false;
                         match self.settings_focused_item {
                             0 => {
                                 let preset_colors = vec![
@@ -322,19 +408,34 @@ impl WavesApp {
                                     let next_idx = (current_idx + 1) % preset_colors.len();
                                     self.config.primary_color = preset_colors[next_idx].to_string();
                                     let _ = self.config.save();
+                                    changed = true;
                                 }
                             }
                             1 => {
+                                let old_opacity = self.config.window_opacity;
                                 self.config.window_opacity = (self.config.window_opacity + 5.0).min(100.0);
-                                let _ = self.config.save();
+                                if (self.config.window_opacity - old_opacity).abs() > 0.01 {
+                                    let _ = self.config.save();
+                                    changed = true;
+                                }
                             }
                             7 => {
                                 if self.config.ui_sounds_enabled {
+                                    let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume + 0.05).min(1.0);
-                                    let _ = self.config.save();
+                                    if (self.config.ui_sounds_volume - old_volume).abs() > 0.001 {
+                                        let _ = self.config.save();
+                                        changed = true;
+                                    }
                                 }
                             }
                             _ => {}
+                        }
+                        if changed {
+                            crate::cursor_sound::play_cursor_sound(
+                                self.config.ui_sounds_enabled,
+                                self.config.ui_sounds_volume
+                            );
                         }
                     }
                     SidebarView::Favorites => {
@@ -383,69 +484,81 @@ impl WavesApp {
                 }
             }
             egui::Key::N => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
-                self.new_folder_prompt = Some(String::new());
+                if matches!(self.sidebar_view, SidebarView::FileBrowser) {
+                    crate::cursor_sound::play_cursor_sound(
+                        self.config.ui_sounds_enabled,
+                        self.config.ui_sounds_volume
+                    );
+                    self.new_folder_prompt = Some(String::new());
+                }
             }
             egui::Key::R => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
-                if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
-                    self.rename_prompt = Some((entry.path.clone(), entry.name.clone()));
+                if matches!(self.sidebar_view, SidebarView::FileBrowser) {
+                    if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
+                        crate::cursor_sound::play_cursor_sound(
+                            self.config.ui_sounds_enabled,
+                            self.config.ui_sounds_volume
+                        );
+                        self.rename_prompt = Some((entry.path.clone(), entry.name.clone()));
+                    }
                 }
             }
             egui::Key::Y => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
-                if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
-                    if let Some((ref path, ClipboardOperation::Copy)) = self.clipboard {
-                        if path == &entry.path {
-                            self.clipboard = None;
+                if matches!(self.sidebar_view, SidebarView::FileBrowser) {
+                    if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
+                        crate::cursor_sound::play_cursor_sound(
+                            self.config.ui_sounds_enabled,
+                            self.config.ui_sounds_volume
+                        );
+                        if let Some((ref path, ClipboardOperation::Copy)) = self.clipboard {
+                            if path == &entry.path {
+                                self.clipboard = None;
+                            } else {
+                                self.clipboard = Some((entry.path.clone(), ClipboardOperation::Copy));
+                            }
                         } else {
                             self.clipboard = Some((entry.path.clone(), ClipboardOperation::Copy));
                         }
-                    } else {
-                        self.clipboard = Some((entry.path.clone(), ClipboardOperation::Copy));
                     }
                 }
             }
             egui::Key::X => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
-                if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
-                    if let Some((ref path, ClipboardOperation::Cut)) = self.clipboard {
-                        if path == &entry.path {
-                            self.clipboard = None;
+                if matches!(self.sidebar_view, SidebarView::FileBrowser) {
+                    if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
+                        crate::cursor_sound::play_cursor_sound(
+                            self.config.ui_sounds_enabled,
+                            self.config.ui_sounds_volume
+                        );
+                        if let Some((ref path, ClipboardOperation::Cut)) = self.clipboard {
+                            if path == &entry.path {
+                                self.clipboard = None;
+                            } else {
+                                self.clipboard = Some((entry.path.clone(), ClipboardOperation::Cut));
+                            }
                         } else {
                             self.clipboard = Some((entry.path.clone(), ClipboardOperation::Cut));
                         }
-                    } else {
-                        self.clipboard = Some((entry.path.clone(), ClipboardOperation::Cut));
                     }
                 }
             }
             egui::Key::P => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
-                self.paste_clipboard();
+                if matches!(self.sidebar_view, SidebarView::FileBrowser) {
+                    crate::cursor_sound::play_cursor_sound(
+                        self.config.ui_sounds_enabled,
+                        self.config.ui_sounds_volume
+                    );
+                    self.paste_clipboard();
+                }
             }
             egui::Key::D => {
-                crate::cursor_sound::play_cursor_sound(
-                    self.config.ui_sounds_enabled,
-                    self.config.ui_sounds_volume
-                );
-                if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
-                    self.delete_confirm_prompt = Some(entry.path.clone());
+                if matches!(self.sidebar_view, SidebarView::FileBrowser) {
+                    if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
+                        crate::cursor_sound::play_cursor_sound(
+                            self.config.ui_sounds_enabled,
+                            self.config.ui_sounds_volume
+                        );
+                        self.delete_confirm_prompt = Some(entry.path.clone());
+                    }
                 }
             }
             egui::Key::F => {
@@ -501,11 +614,35 @@ impl WavesApp {
                     self.config.ui_sounds_enabled,
                     self.config.ui_sounds_volume
                 );
-                self.sidebar_view = match self.sidebar_view {
-                    SidebarView::FileBrowser => SidebarView::Favorites,
-                    SidebarView::Favorites => SidebarView::Settings,
-                    SidebarView::Settings => SidebarView::FileBrowser,
-                };
+                if ctx.input(|i| i.modifiers.shift) {
+                    self.sidebar_view = match self.sidebar_view {
+                        SidebarView::FileBrowser => SidebarView::Settings,
+                        SidebarView::Favorites => SidebarView::FileBrowser,
+                        SidebarView::Settings => {
+                            // Ensure favorites_selected is valid when switching to Favorites
+                            if self.favorites_selected >= self.favorites.len() && !self.favorites.is_empty() {
+                                self.favorites_selected = self.favorites.len() - 1;
+                            } else if self.favorites.is_empty() {
+                                self.favorites_selected = 0;
+                            }
+                            SidebarView::Favorites
+                        },
+                    };
+                } else {
+                    self.sidebar_view = match self.sidebar_view {
+                        SidebarView::FileBrowser => {
+                            // Ensure favorites_selected is valid when switching to Favorites
+                            if self.favorites_selected >= self.favorites.len() && !self.favorites.is_empty() {
+                                self.favorites_selected = self.favorites.len() - 1;
+                            } else if self.favorites.is_empty() {
+                                self.favorites_selected = 0;
+                            }
+                            SidebarView::Favorites
+                        },
+                        SidebarView::Favorites => SidebarView::Settings,
+                        SidebarView::Settings => SidebarView::FileBrowser,
+                    };
+                }
             }
             egui::Key::B => {
                 crate::cursor_sound::play_cursor_sound(
@@ -515,6 +652,8 @@ impl WavesApp {
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
                         self.browsing_mode = self.browsing_mode.next();
+                        self.grouped_view = GroupedView::GroupList;
+                        self.current_group_tracks.clear();
                         self.update_columns_with_selection(Some(0));
                     }
                     _ => {}

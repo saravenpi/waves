@@ -6,7 +6,6 @@ use eframe::egui;
 pub enum ButtonStyle {
     Primary,
     Secondary,
-    Danger,
 }
 
 pub struct Button {
@@ -36,35 +35,23 @@ impl Button {
         self
     }
 
-    pub fn min_size(mut self, size: egui::Vec2) -> Self {
-        self.min_size = size;
-        self
-    }
-
     pub fn show(self, ui: &mut egui::Ui, primary_color: egui::Color32) -> egui::Response {
         let (fill_color, text_color, stroke_color) = if self.selected {
             match self.style {
                 ButtonStyle::Primary => (primary_color, egui::Color32::WHITE, primary_color),
                 ButtonStyle::Secondary => (egui::Color32::WHITE, egui::Color32::BLACK, egui::Color32::WHITE),
-                ButtonStyle::Danger => {
-                    let danger_color = egui::Color32::from_rgb(220, 50, 50);
-                    (danger_color, egui::Color32::WHITE, danger_color)
-                }
             }
         } else {
             match self.style {
                 ButtonStyle::Primary => (egui::Color32::TRANSPARENT, primary_color, primary_color),
                 ButtonStyle::Secondary => (egui::Color32::TRANSPARENT, egui::Color32::from_rgb(150, 150, 150), egui::Color32::WHITE),
-                ButtonStyle::Danger => {
-                    let danger_color = egui::Color32::from_rgb(220, 50, 50);
-                    (egui::Color32::TRANSPARENT, danger_color, danger_color)
-                }
             }
         };
 
         let button = egui::Button::new(egui::RichText::new(&self.text).size(14.0).color(text_color))
             .fill(fill_color)
             .stroke(egui::Stroke::new(1.0, stroke_color))
+            .rounding(0.0)
             .min_size(self.min_size);
 
         ui.add(button)
@@ -144,150 +131,90 @@ impl Modal {
     }
 }
 
-pub struct TextInput {
-    hint: String,
-    width: Option<f32>,
+pub struct IconButton {
+    icon: String,
+    size: f32,
+    color: Option<egui::Color32>,
 }
 
-impl TextInput {
-    pub fn new(hint: impl Into<String>) -> Self {
+impl IconButton {
+    pub fn new(icon: impl Into<String>) -> Self {
         Self {
-            hint: hint.into(),
-            width: None,
+            icon: icon.into(),
+            size: 28.0,
+            color: None,
         }
     }
 
-    pub fn width(mut self, width: f32) -> Self {
-        self.width = Some(width);
+    pub fn size(mut self, size: f32) -> Self {
+        self.size = size;
         self
     }
 
-    pub fn show(self, ui: &mut egui::Ui, text: &mut String) -> egui::Response {
-        let text_edit = egui::TextEdit::singleline(text)
-            .hint_text(&self.hint)
-            .frame(true)
-            .desired_width(self.width.unwrap_or(ui.available_width()));
+    pub fn color(mut self, color: egui::Color32) -> Self {
+        self.color = Some(color);
+        self
+    }
 
-        let response = ui.add(text_edit);
-
-        ui.style_mut().visuals.extreme_bg_color = egui::Color32::BLACK;
-        ui.style_mut().visuals.widgets.inactive.bg_fill = egui::Color32::BLACK;
-        ui.style_mut().visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
-        ui.style_mut().visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(20, 20, 20);
-        ui.style_mut().visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
-        ui.style_mut().visuals.widgets.active.bg_fill = egui::Color32::from_rgb(30, 30, 30);
-        ui.style_mut().visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
-        ui.style_mut().visuals.selection.bg_fill = egui::Color32::from_rgb(150, 100, 255);
-
-        response
+    pub fn show(self, ui: &mut egui::Ui) -> egui::Response {
+        let color = self.color.unwrap_or(egui::Color32::WHITE);
+        let button = egui::Button::new(egui::RichText::new(&self.icon).size(self.size).color(color))
+            .fill(egui::Color32::TRANSPARENT)
+            .stroke(egui::Stroke::NONE);
+        ui.add(button)
     }
 }
 
-pub struct Toggle {
-    text: String,
+pub struct Select {
+    options: Vec<(String, String)>,
+    selected_index: usize,
 }
 
-impl Toggle {
-    pub fn new(text: impl Into<String>) -> Self {
+impl Select {
+    pub fn new(options: Vec<(String, String)>, selected_index: usize) -> Self {
         Self {
-            text: text.into(),
+            options,
+            selected_index,
         }
     }
 
-    pub fn show(self, ui: &mut egui::Ui, value: &mut bool, primary_color: egui::Color32) -> egui::Response {
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(&self.text).size(14.0).color(egui::Color32::WHITE));
-            ui.add_space(10.0);
+    pub fn show(self, ui: &mut egui::Ui, primary_color: egui::Color32) -> (egui::Response, Option<usize>) {
+        let mut clicked_index = None;
 
-            let rect_size = egui::vec2(45.0, 22.0);
-            let (rect, response) = ui.allocate_exact_size(rect_size, egui::Sense::click());
+        let total_width = ui.available_width();
+        let button_width = total_width / self.options.len() as f32;
 
-            if response.clicked() {
-                *value = !*value;
+        let response = ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 0.0;
+
+            for (idx, (icon, label)) in self.options.iter().enumerate() {
+                let is_selected = idx == self.selected_index;
+
+                let (bg_color, text_color, stroke) = if is_selected {
+                    (primary_color, egui::Color32::WHITE, egui::Stroke::new(1.0, primary_color))
+                } else {
+                    (egui::Color32::TRANSPARENT, egui::Color32::from_rgb(150, 150, 150), egui::Stroke::new(1.0, egui::Color32::WHITE))
+                };
+
+                let button_text = if icon.is_empty() {
+                    label.clone()
+                } else {
+                    format!("{} {}", icon, label)
+                };
+
+                let button = egui::Button::new(egui::RichText::new(&button_text).size(12.0).color(text_color))
+                    .fill(bg_color)
+                    .stroke(stroke)
+                    .rounding(0.0)
+                    .min_size(egui::vec2(button_width, 28.0));
+
+                if ui.add(button).clicked() {
+                    clicked_index = Some(idx);
+                }
             }
+        });
 
-            let _visuals = ui.style().interact(&response);
-            let bg_color = if *value { primary_color } else { egui::Color32::from_rgb(40, 40, 40) };
-            let border_color = if response.hovered() { egui::Color32::from_rgb(200, 200, 200) } else { egui::Color32::WHITE };
-
-            ui.painter().rect(
-                rect,
-                0.0,
-                bg_color,
-                egui::Stroke::new(1.0, border_color),
-            );
-
-            let circle_radius = 8.0;
-            let circle_offset = if *value { rect.width() - circle_radius - 5.0 } else { circle_radius + 5.0 };
-            let circle_pos = egui::pos2(rect.left() + circle_offset, rect.center().y);
-
-            ui.painter().circle(
-                circle_pos,
-                circle_radius,
-                egui::Color32::WHITE,
-                egui::Stroke::new(1.0, egui::Color32::WHITE),
-            );
-
-            response
-        })
-        .inner
-    }
-}
-
-pub struct Slider {
-    label: String,
-    min: f32,
-    max: f32,
-    suffix: String,
-}
-
-impl Slider {
-    pub fn new(label: impl Into<String>, min: f32, max: f32) -> Self {
-        Self {
-            label: label.into(),
-            min,
-            max,
-            suffix: String::new(),
-        }
-    }
-
-    pub fn suffix(mut self, suffix: impl Into<String>) -> Self {
-        self.suffix = suffix.into();
-        self
-    }
-
-    pub fn show(self, ui: &mut egui::Ui, value: &mut f32, primary_color: egui::Color32) -> egui::Response {
-        ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(&self.label).size(14.0).color(egui::Color32::WHITE));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let display_value = if !self.suffix.is_empty() {
-                        format!("{:.0}{}", value, self.suffix)
-                    } else {
-                        format!("{:.2}", value)
-                    };
-                    ui.label(egui::RichText::new(display_value).size(12.0).color(egui::Color32::from_rgb(150, 150, 150)));
-                });
-            });
-
-            ui.add_space(5.0);
-
-            let slider = egui::Slider::new(value, self.min..=self.max)
-                .show_value(false);
-
-            let response = ui.add(slider);
-
-            ui.style_mut().visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(40, 40, 40);
-            ui.style_mut().visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
-            ui.style_mut().visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(50, 50, 50);
-            ui.style_mut().visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, primary_color);
-            ui.style_mut().visuals.widgets.active.bg_fill = primary_color;
-            ui.style_mut().visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
-            ui.style_mut().visuals.selection.bg_fill = primary_color;
-
-            response
-        })
-        .inner
+        (response.response, clicked_index)
     }
 }
 
