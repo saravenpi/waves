@@ -55,7 +55,37 @@ pub fn search_audio_files(directory: &Path, query: &str) -> Vec<SearchResult> {
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
-    search_audio_files_recursive(directory, query, &query_lower, &mut results, 0, 6);
+    // Two-pass strategy for speed:
+    // Pass 1: Quick filename-only search (very fast)
+    let mut filename_matches: Vec<PathBuf> = Vec::new();
+    collect_filename_matches(directory, &query_lower, &mut filename_matches, 0, 4);
+
+    // Pass 2: Extract metadata only for promising candidates
+    for path in filename_matches.iter().take(30) {
+        if let Some(name) = path.file_name() {
+            let name = name.to_string_lossy().to_string();
+            let path_clone = path.clone();
+            let metadata_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                extract_metadata(&path_clone)
+            }));
+
+            let (title, artist, album) = match metadata_result {
+                Ok((title, artist, album, _, _, _)) => (title, artist, album),
+                Err(_) => (name.clone(), None, None)
+            };
+
+            let relevance = calculate_relevance(&title, &artist, &name, &query_lower);
+
+            results.push(SearchResult {
+                path: path.clone(),
+                filename: name.clone(),
+                title,
+                artist,
+                album,
+                relevance,
+            });
+        }
+    }
 
     // Sort by relevance (highest first)
     results.sort_by(|a, b| b.relevance.cmp(&a.relevance));
@@ -63,19 +93,14 @@ pub fn search_audio_files(directory: &Path, query: &str) -> Vec<SearchResult> {
     results
 }
 
-pub fn search_audio_files_recursive(
+fn collect_filename_matches(
     directory: &Path,
-    query: &str,
     query_lower: &str,
-    results: &mut Vec<SearchResult>,
+    matches: &mut Vec<PathBuf>,
     depth: usize,
     max_depth: usize,
 ) {
-    if depth > max_depth {
-        return;
-    }
-
-    if results.len() >= 150 {
+    if depth > max_depth || matches.len() >= 100 {
         return;
     }
 
@@ -85,6 +110,10 @@ pub fn search_audio_files_recursive(
     };
 
     for entry in entries.filter_map(|e| e.ok()) {
+        if matches.len() >= 100 {
+            return;
+        }
+
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
 
@@ -93,7 +122,7 @@ pub fn search_audio_files_recursive(
         }
 
         if path.is_dir() {
-            search_audio_files_recursive(&path, query, query_lower, results, depth + 1, max_depth);
+            collect_filename_matches(&path, query_lower, matches, depth + 1, max_depth);
         } else {
             let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
             if !matches!(ext, "mp3" | "wav" | "flac" | "ogg" | "m4a") {
@@ -101,50 +130,8 @@ pub fn search_audio_files_recursive(
             }
 
             let filename_lower = name.to_lowercase();
-            let filename_matches = filename_lower.contains(query_lower);
-
-            // Optimize: if we have many results and filename doesn't match, skip metadata extraction
-            if !filename_matches && results.len() >= 100 {
-                continue;
-            }
-
-            // Extract metadata if filename matches or we need to check other fields
-            let path_clone = path.clone();
-            let metadata_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                extract_metadata(&path_clone)
-            }));
-
-            let (title, artist, album) = match metadata_result {
-                Ok((title, artist, album, _, _, _)) => (title, artist, album),
-                Err(_) => {
-                    eprintln!("Warning: Failed to extract metadata from {:?}", path);
-                    (name.clone(), None, None)
-                }
-            };
-
-            let title_lower = title.to_lowercase();
-            let artist_lower = artist.as_ref().map(|a| a.to_lowercase());
-            let album_lower = album.as_ref().map(|a| a.to_lowercase());
-
-            let matches_title = title_lower.contains(query_lower);
-            let matches_artist = artist_lower.as_ref().map_or(false, |a| a.contains(query_lower));
-            let matches_album = album_lower.as_ref().map_or(false, |a| a.contains(query_lower));
-
-            if filename_matches || matches_title || matches_artist || matches_album {
-                let relevance = calculate_relevance(&title, &artist, &name, query_lower);
-
-                results.push(SearchResult {
-                    path: path.clone(),
-                    filename: name.clone(),
-                    title,
-                    artist,
-                    album,
-                    relevance,
-                });
-            }
-
-            if results.len() >= 150 {
-                return;
+            if filename_lower.contains(query_lower) {
+                matches.push(path);
             }
         }
     }
