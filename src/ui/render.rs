@@ -1641,7 +1641,8 @@ impl eframe::App for WavesApp {
                         // Handle keyboard navigation when search has focus or results are showing
                         if search_has_focus || !self.search_results.is_empty() {
                             if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-                                if self.search_selected < self.search_results.len().saturating_sub(1) {
+                                let max_display = self.search_results.len().min(5).saturating_sub(1);
+                                if self.search_selected < max_display {
                                     self.search_selected += 1;
                                 }
                             }
@@ -1678,57 +1679,57 @@ impl eframe::App for WavesApp {
                                 ..Default::default()
                             }
                             .show(ui, |ui| {
-                                egui::ScrollArea::vertical()
-                                    .max_height(250.0)
-                                    .auto_shrink([false, false])
-                                    .show(ui, |ui| {
-                                        for (idx, result) in self.search_results.iter().enumerate() {
-                                            let is_selected = idx == self.search_selected;
+                                ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-                                            let display_text = if let Some(ref artist) = result.artist {
-                                                format!("{} - {}", result.title, artist)
-                                            } else {
-                                                result.title.clone()
-                                            };
+                                // Only show top 5 results
+                                let display_results = self.search_results.iter().take(5);
 
-                                            let album_text = result.album.as_ref()
-                                                .map(|a| format!(" [{}]", a))
-                                                .unwrap_or_default();
+                                for (idx, result) in display_results.enumerate() {
+                                    let is_selected = idx == self.search_selected;
 
-                                            let full_text = format!("{}{}", display_text, album_text);
+                                    let display_text = if let Some(ref artist) = result.artist {
+                                        format!("{} - {}", result.title, artist)
+                                    } else {
+                                        result.title.clone()
+                                    };
 
-                                            let (rect, response) = ui.allocate_exact_size(
-                                                egui::vec2(ui.available_width(), 28.0),
-                                                egui::Sense::click()
-                                            );
+                                    let album_text = result.album.as_ref()
+                                        .map(|a| format!(" [{}]", a))
+                                        .unwrap_or_default();
 
-                                            if response.clicked() {
-                                                clicked_result = Some(result.path.clone());
-                                            }
+                                    let full_text = format!("{}{}", display_text, album_text);
 
-                                            if is_selected {
-                                                ui.painter().rect_filled(
-                                                    rect,
-                                                    0.0,
-                                                    egui::Color32::WHITE
-                                                );
-                                            }
+                                    let (rect, response) = ui.allocate_exact_size(
+                                        egui::vec2(ui.available_width() - 8.0, 28.0),
+                                        egui::Sense::click()
+                                    );
 
-                                            let text_color = if is_selected {
-                                                egui::Color32::BLACK
-                                            } else {
-                                                egui::Color32::from_rgb(200, 200, 200)
-                                            };
+                                    if response.clicked() {
+                                        clicked_result = Some(result.path.clone());
+                                    }
 
-                                            ui.painter().text(
-                                                rect.left_top() + egui::vec2(8.0, 6.0),
-                                                egui::Align2::LEFT_TOP,
-                                                &full_text,
-                                                egui::FontId::proportional(13.0),
-                                                text_color
-                                            );
-                                        }
-                                    });
+                                    if is_selected {
+                                        ui.painter().rect_filled(
+                                            rect,
+                                            0.0,
+                                            egui::Color32::WHITE
+                                        );
+                                    }
+
+                                    let text_color = if is_selected {
+                                        egui::Color32::BLACK
+                                    } else {
+                                        egui::Color32::from_rgb(200, 200, 200)
+                                    };
+
+                                    ui.painter().text(
+                                        rect.left_top() + egui::vec2(8.0, 6.0),
+                                        egui::Align2::LEFT_TOP,
+                                        &full_text,
+                                        egui::FontId::proportional(13.0),
+                                        text_color
+                                    );
+                                }
                             });
 
                             if let Some(path) = clicked_result {
@@ -2489,7 +2490,8 @@ impl eframe::App for WavesApp {
 
                     if !self.search_results.is_empty() {
                         if ui.input(|i| i.key_pressed(egui::Key::ArrowDown) || i.key_pressed(egui::Key::J)) {
-                            if self.search_selected < self.search_results.len().saturating_sub(1) {
+                            let max_display = self.search_results.len().min(5).saturating_sub(1);
+                            if self.search_selected < max_display {
                                 self.search_selected += 1;
                             }
                         }
@@ -2521,69 +2523,70 @@ impl eframe::App for WavesApp {
                             ..Default::default()
                         }
                         .show(ui, |ui| {
-                            egui::ScrollArea::vertical()
-                                .max_height(410.0)
-                                .show(ui, |ui| {
-                                    for (idx, result) in self.search_results.iter().enumerate() {
-                                        let is_selected = idx == self.search_selected;
+                            ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-                                        let display_text = if let Some(ref artist) = result.artist {
-                                            format!("{} - {}", result.title, artist)
-                                        } else {
-                                            result.title.clone()
-                                        };
+                            // Only show top 5 results
+                            let display_results = self.search_results.iter().take(5);
 
-                                        let album_text = result.album.as_ref()
-                                            .map(|a| format!(" [{}]", a))
-                                            .unwrap_or_default();
+                            for (idx, result) in display_results.enumerate() {
+                                let is_selected = idx == self.search_selected;
 
-                                        let full_text = format!("{}{}", display_text, album_text);
+                                let display_text = if let Some(ref artist) = result.artist {
+                                    format!("{} - {}", result.title, artist)
+                                } else {
+                                    result.title.clone()
+                                };
 
-                                        let (rect, response) = ui.allocate_exact_size(
-                                            egui::vec2(ui.available_width(), 32.0),
-                                            egui::Sense::click()
-                                        );
+                                let album_text = result.album.as_ref()
+                                    .map(|a| format!(" [{}]", a))
+                                    .unwrap_or_default();
 
-                                        if response.clicked() {
-                                            selected_result = Some(SearchResult {
-                                                path: result.path.clone(),
-                                                filename: result.filename.clone(),
-                                                title: result.title.clone(),
-                                                artist: result.artist.clone(),
-                                                album: result.album.clone(),
-                                                relevance: result.relevance,
-                                            });
-                                        }
+                                let full_text = format!("{}{}", display_text, album_text);
 
-                                        if is_selected {
-                                            ui.painter().rect_filled(
-                                                rect,
-                                                0.0,
-                                                egui::Color32::WHITE,
-                                            );
-                                        } else if response.hovered() {
-                                            ui.painter().rect_filled(
-                                                rect,
-                                                0.0,
-                                                egui::Color32::from_rgb(30, 30, 30),
-                                            );
-                                        }
+                                let (rect, response) = ui.allocate_exact_size(
+                                    egui::vec2(ui.available_width() - 8.0, 32.0),
+                                    egui::Sense::click()
+                                );
 
-                                        let text_color = if is_selected {
-                                            egui::Color32::BLACK
-                                        } else {
-                                            egui::Color32::from_rgb(200, 200, 200)
-                                        };
+                                if response.clicked() {
+                                    selected_result = Some(SearchResult {
+                                        path: result.path.clone(),
+                                        filename: result.filename.clone(),
+                                        title: result.title.clone(),
+                                        artist: result.artist.clone(),
+                                        album: result.album.clone(),
+                                        relevance: result.relevance,
+                                    });
+                                }
 
-                                        ui.painter().text(
-                                            rect.left_top() + egui::vec2(8.0, 8.0),
-                                            egui::Align2::LEFT_TOP,
-                                            &full_text,
-                                            egui::FontId::monospace(16.0),
-                                            text_color,
-                                        );
-                                    }
-                                });
+                                if is_selected {
+                                    ui.painter().rect_filled(
+                                        rect,
+                                        0.0,
+                                        egui::Color32::WHITE,
+                                    );
+                                } else if response.hovered() {
+                                    ui.painter().rect_filled(
+                                        rect,
+                                        0.0,
+                                        egui::Color32::from_rgb(30, 30, 30),
+                                    );
+                                }
+
+                                let text_color = if is_selected {
+                                    egui::Color32::BLACK
+                                } else {
+                                    egui::Color32::from_rgb(200, 200, 200)
+                                };
+
+                                ui.painter().text(
+                                    rect.left_top() + egui::vec2(8.0, 8.0),
+                                    egui::Align2::LEFT_TOP,
+                                    &full_text,
+                                    egui::FontId::monospace(16.0),
+                                    text_color,
+                                );
+                            }
                         });
 
                         if let Some(result) = selected_result {

@@ -55,7 +55,7 @@ pub fn search_audio_files(directory: &Path, query: &str) -> Vec<SearchResult> {
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
-    search_audio_files_recursive(directory, query, &query_lower, &mut results, 0, 10);
+    search_audio_files_recursive(directory, query, &query_lower, &mut results, 0, 6);
 
     // Sort by relevance (highest first)
     results.sort_by(|a, b| b.relevance.cmp(&a.relevance));
@@ -75,7 +75,7 @@ pub fn search_audio_files_recursive(
         return;
     }
 
-    if results.len() >= 500 {
+    if results.len() >= 150 {
         return;
     }
 
@@ -100,6 +100,15 @@ pub fn search_audio_files_recursive(
                 continue;
             }
 
+            let filename_lower = name.to_lowercase();
+            let filename_matches = filename_lower.contains(query_lower);
+
+            // Optimize: if we have many results and filename doesn't match, skip metadata extraction
+            if !filename_matches && results.len() >= 100 {
+                continue;
+            }
+
+            // Extract metadata if filename matches or we need to check other fields
             let path_clone = path.clone();
             let metadata_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 extract_metadata(&path_clone)
@@ -113,17 +122,15 @@ pub fn search_audio_files_recursive(
                 }
             };
 
-            let filename_lower = name.to_lowercase();
             let title_lower = title.to_lowercase();
             let artist_lower = artist.as_ref().map(|a| a.to_lowercase());
             let album_lower = album.as_ref().map(|a| a.to_lowercase());
 
-            let matches_filename = filename_lower.contains(query_lower);
             let matches_title = title_lower.contains(query_lower);
             let matches_artist = artist_lower.as_ref().map_or(false, |a| a.contains(query_lower));
             let matches_album = album_lower.as_ref().map_or(false, |a| a.contains(query_lower));
 
-            if matches_filename || matches_title || matches_artist || matches_album {
+            if filename_matches || matches_title || matches_artist || matches_album {
                 let relevance = calculate_relevance(&title, &artist, &name, query_lower);
 
                 results.push(SearchResult {
@@ -136,7 +143,7 @@ pub fn search_audio_files_recursive(
                 });
             }
 
-            if results.len() >= 500 {
+            if results.len() >= 150 {
                 return;
             }
         }
