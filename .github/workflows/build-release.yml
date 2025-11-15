@@ -27,15 +27,13 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            waves-gui/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('waves-gui/Cargo.lock') }}
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
 
       - name: Build release
-        working-directory: waves-gui
         run: cargo build --release
 
       - name: Create DMG
-        working-directory: waves-gui
         run: |
           # Create app bundle structure
           mkdir -p Waves.app/Contents/MacOS
@@ -107,7 +105,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: waves-macos
-          path: waves-gui/installers/waves-macos.dmg
+          path: installers/waves-macos.dmg
 
   build-linux:
     name: Build Linux
@@ -131,15 +129,13 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            waves-gui/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('waves-gui/Cargo.lock') }}
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
 
       - name: Build release
-        working-directory: waves-gui
         run: cargo build --release
 
       - name: Create tar.gz package
-        working-directory: waves-gui
         run: |
           mkdir -p installers/linux-package
           cp target/release/waves installers/linux-package/
@@ -166,7 +162,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: waves-linux
-          path: waves-gui/installers/waves-linux-x86_64.tar.gz
+          path: installers/waves-linux-x86_64.tar.gz
 
   build-windows:
     name: Build Windows
@@ -185,15 +181,13 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            waves-gui/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('waves-gui/Cargo.lock') }}
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
 
       - name: Build release
-        working-directory: waves-gui
         run: cargo build --release
 
       - name: Create Windows package
-        working-directory: waves-gui
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path installers/windows-package
@@ -220,7 +214,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: waves-windows
-          path: waves-gui/installers/waves-windows-x86_64.zip
+          path: installers/waves-windows-x86_64.zip
 
   create-release:
     name: Create Release
