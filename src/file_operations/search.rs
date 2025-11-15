@@ -55,35 +55,37 @@ pub fn search_audio_files(directory: &Path, query: &str) -> Vec<SearchResult> {
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
-    // Two-pass strategy for speed:
-    // Pass 1: Quick filename-only search (very fast)
-    let mut filename_matches: Vec<PathBuf> = Vec::new();
-    collect_filename_matches(directory, &query_lower, &mut filename_matches, 0, 4);
+    // Collect all audio files up to a reasonable limit
+    let mut all_files: Vec<PathBuf> = Vec::new();
+    collect_audio_files(directory, &mut all_files, 0, 4);
 
-    // Pass 2: Extract metadata only for promising candidates
-    for path in filename_matches.iter().take(30) {
+    // Process files: prioritize filename matches, then check metadata
+    let mut filename_matches = Vec::new();
+    let mut other_files = Vec::new();
+
+    for path in all_files {
         if let Some(name) = path.file_name() {
-            let name = name.to_string_lossy().to_string();
-            let path_clone = path.clone();
-            let metadata_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                extract_metadata(&path_clone)
-            }));
+            let name_str = name.to_string_lossy();
+            if name_str.to_lowercase().contains(&query_lower) {
+                filename_matches.push(path);
+            } else {
+                other_files.push(path);
+            }
+        }
+    }
 
-            let (title, artist, album) = match metadata_result {
-                Ok((title, artist, album, _, _, _)) => (title, artist, album),
-                Err(_) => (name.clone(), None, None)
-            };
+    // Process filename matches first (up to 20)
+    for path in filename_matches.iter().take(20) {
+        if let Some(result) = extract_and_check(&path, &query_lower) {
+            results.push(result);
+        }
+    }
 
-            let relevance = calculate_relevance(&title, &artist, &name, &query_lower);
-
-            results.push(SearchResult {
-                path: path.clone(),
-                filename: name.clone(),
-                title,
-                artist,
-                album,
-                relevance,
-            });
+    // If we need more results, check other files' metadata (up to 30 total)
+    let needed = 30_usize.saturating_sub(results.len());
+    for path in other_files.iter().take(needed) {
+        if let Some(result) = extract_and_check(&path, &query_lower) {
+            results.push(result);
         }
     }
 
@@ -93,14 +95,52 @@ pub fn search_audio_files(directory: &Path, query: &str) -> Vec<SearchResult> {
     results
 }
 
-fn collect_filename_matches(
+fn extract_and_check(path: &PathBuf, query_lower: &str) -> Option<SearchResult> {
+    let name = path.file_name()?.to_string_lossy().to_string();
+    let path_clone = path.clone();
+
+    let metadata_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        extract_metadata(&path_clone)
+    }));
+
+    let (title, artist, album) = match metadata_result {
+        Ok((title, artist, album, _, _, _)) => (title, artist, album),
+        Err(_) => (name.clone(), None, None)
+    };
+
+    // Check if any field matches
+    let title_lower = title.to_lowercase();
+    let artist_lower = artist.as_ref().map(|a| a.to_lowercase());
+    let album_lower = album.as_ref().map(|a| a.to_lowercase());
+    let filename_lower = name.to_lowercase();
+
+    let matches = filename_lower.contains(query_lower)
+        || title_lower.contains(query_lower)
+        || artist_lower.as_ref().map_or(false, |a| a.contains(query_lower))
+        || album_lower.as_ref().map_or(false, |a| a.contains(query_lower));
+
+    if matches {
+        let relevance = calculate_relevance(&title, &artist, &name, query_lower);
+        Some(SearchResult {
+            path: path.clone(),
+            filename: name,
+            title,
+            artist,
+            album,
+            relevance,
+        })
+    } else {
+        None
+    }
+}
+
+fn collect_audio_files(
     directory: &Path,
-    query_lower: &str,
-    matches: &mut Vec<PathBuf>,
+    files: &mut Vec<PathBuf>,
     depth: usize,
     max_depth: usize,
 ) {
-    if depth > max_depth || matches.len() >= 100 {
+    if depth > max_depth || files.len() >= 200 {
         return;
     }
 
@@ -110,7 +150,7 @@ fn collect_filename_matches(
     };
 
     for entry in entries.filter_map(|e| e.ok()) {
-        if matches.len() >= 100 {
+        if files.len() >= 200 {
             return;
         }
 
@@ -122,16 +162,11 @@ fn collect_filename_matches(
         }
 
         if path.is_dir() {
-            collect_filename_matches(&path, query_lower, matches, depth + 1, max_depth);
+            collect_audio_files(&path, files, depth + 1, max_depth);
         } else {
             let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-            if !matches!(ext, "mp3" | "wav" | "flac" | "ogg" | "m4a") {
-                continue;
-            }
-
-            let filename_lower = name.to_lowercase();
-            if filename_lower.contains(query_lower) {
-                matches.push(path);
+            if matches!(ext, "mp3" | "wav" | "flac" | "ogg" | "m4a") {
+                files.push(path);
             }
         }
     }
