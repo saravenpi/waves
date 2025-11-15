@@ -208,7 +208,7 @@ jobs:
           3. Run: waves.exe
           "@ | Out-File -FilePath installers/windows-package/README.txt -Encoding ASCII
 
-          Compress-Archive -Path installers/windows-package/* -DestinationPath installers/waves-windows-x86_64.zip
+          Compress-Archive -Path installers/windows-package/* -DestinationPath installers/waves-windows-x86_64.zip -Force
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
