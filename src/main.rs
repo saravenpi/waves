@@ -28,7 +28,11 @@ fn main() -> eframe::Result {
     let config = Config::load();
 
     let (file_open_sender, file_open_receiver) = mpsc::channel();
+
+    #[cfg(target_os = "macos")]
     let (menu_action_sender, menu_action_receiver) = mpsc::channel();
+    #[cfg(not(target_os = "macos"))]
+    let _menu_action_sender: mpsc::Sender<()> = mpsc::channel().0;
 
     #[cfg(target_os = "macos")]
     {
@@ -124,10 +128,19 @@ fn main() -> eframe::Result {
 
             cc.egui_ctx.options_mut(|o| o.warn_on_id_clash = false);
 
-            Ok(Box::new(WavesApp::new_with_receiver(
-                file_open_receiver,
-                menu_action_receiver,
-            )))
+            #[cfg(target_os = "macos")]
+            {
+                Ok(Box::new(WavesApp::new_with_receiver(
+                    file_open_receiver,
+                    menu_action_receiver,
+                )))
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                Ok(Box::new(WavesApp::new_with_receiver(
+                    file_open_receiver,
+                )))
+            }
         }),
     )
 }
