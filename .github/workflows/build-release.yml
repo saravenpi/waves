@@ -1,0 +1,246 @@
+name: Build Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            waves-gui/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('waves-gui/Cargo.lock') }}
+
+      - name: Build release
+        working-directory: waves-gui
+        run: cargo build --release
+
+      - name: Create DMG
+        working-directory: waves-gui
+        run: |
+          # Create app bundle structure
+          mkdir -p Waves.app/Contents/MacOS
+          mkdir -p Waves.app/Contents/Resources
+
+          # Copy binary
+          cp target/release/waves Waves.app/Contents/MacOS/waves
+          chmod +x Waves.app/Contents/MacOS/waves
+
+          # Copy logo
+          cp waves_logo.png Waves.app/Contents/Resources/
+
+          # Create Info.plist
+          cat > Waves.app/Contents/Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>waves</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.saravenpi.waves</string>
+              <key>CFBundleName</key>
+              <string>Waves</string>
+              <key>CFBundleVersion</key>
+              <string>0.1.0</string>
+              <key>CFBundleShortVersionString</key>
+              <string>0.1.0</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleIconFile</key>
+              <string>waves_logo</string>
+              <key>CFBundleDocumentTypes</key>
+              <array>
+                  <dict>
+                      <key>CFBundleTypeName</key>
+                      <string>Audio File</string>
+                      <key>CFBundleTypeRole</key>
+                      <string>Viewer</string>
+                      <key>LSItemContentTypes</key>
+                      <array>
+                          <string>public.mp3</string>
+                          <string>public.audio</string>
+                          <string>com.microsoft.waveform-audio</string>
+                      </array>
+                  </dict>
+                  <dict>
+                      <key>CFBundleTypeName</key>
+                      <string>Folder</string>
+                      <key>CFBundleTypeRole</key>
+                      <string>Viewer</string>
+                      <key>LSItemContentTypes</key>
+                      <array>
+                          <string>public.folder</string>
+                      </array>
+                  </dict>
+              </array>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
+          </dict>
+          </plist>
+          EOF
+
+          # Create DMG
+          mkdir -p installers
+          hdiutil create -volname "Waves" -srcfolder Waves.app -ov -format UDZO installers/waves-macos.dmg
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: waves-macos
+          path: waves-gui/installers/waves-macos.dmg
+
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev pkg-config libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            waves-gui/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('waves-gui/Cargo.lock') }}
+
+      - name: Build release
+        working-directory: waves-gui
+        run: cargo build --release
+
+      - name: Create tar.gz package
+        working-directory: waves-gui
+        run: |
+          mkdir -p installers/linux-package
+          cp target/release/waves installers/linux-package/
+          cp waves_logo.png installers/linux-package/
+          cp install-linux.sh installers/linux-package/
+
+          cat > installers/linux-package/README.txt << 'EOF'
+          WAVES Music Player - Linux Installation
+
+          To install:
+          1. Run: chmod +x install-linux.sh
+          2. Run: ./install-linux.sh
+
+          Or manually:
+          1. Copy 'waves' to ~/.local/bin/
+          2. Make it executable: chmod +x ~/.local/bin/waves
+          3. Run: waves
+          EOF
+
+          cd installers
+          tar -czf waves-linux-x86_64.tar.gz linux-package
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: waves-linux
+          path: waves-gui/installers/waves-linux-x86_64.tar.gz
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            waves-gui/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('waves-gui/Cargo.lock') }}
+
+      - name: Build release
+        working-directory: waves-gui
+        run: cargo build --release
+
+      - name: Create Windows package
+        working-directory: waves-gui
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path installers/windows-package
+          Copy-Item target/release/waves.exe installers/windows-package/
+          Copy-Item waves_logo.png installers/windows-package/
+          Copy-Item install-windows.ps1 installers/windows-package/
+
+          @"
+          WAVES Music Player - Windows Installation
+
+          To install:
+          1. Right-click on install-windows.ps1
+          2. Select 'Run with PowerShell'
+
+          Or manually:
+          1. Copy waves.exe to a directory of your choice
+          2. Add that directory to your PATH
+          3. Run: waves.exe
+          "@ | Out-File -FilePath installers/windows-package/README.txt -Encoding ASCII
+
+          Compress-Archive -Path installers/windows-package/* -DestinationPath installers/waves-windows-x86_64.zip
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: waves-windows
+          path: waves-gui/installers/waves-windows-x86_64.zip
+
+  create-release:
+    name: Create Release
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/waves-macos/waves-macos.dmg
+            artifacts/waves-linux/waves-linux-x86_64.tar.gz
+            artifacts/waves-windows/waves-windows-x86_64.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
