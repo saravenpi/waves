@@ -216,7 +216,7 @@ impl WavesApp {
         let treble_magnitude: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
 
         // Layer 1: Flowing spiral particles (spinning inward)
-        let particle_count = 200;
+        let particle_count = 600;
         for i in 0..particle_count {
             let particle_progress = i as f32 / particle_count as f32;
             let spiral_angle = particle_progress * 8.0 * PI + time * 1.5;
@@ -240,29 +240,30 @@ impl WavesApp {
         }
 
         // Layer 2: Pulsating gradient rings with frequency-specific reactivity
-        let ring_count = 8;
+        let ring_count = 32;
         for ring in 0..ring_count {
             let ring_progress = ring as f32 / ring_count as f32;
             let ring_phase = time * 1.2 + ring_progress * PI;
 
             // Assign different frequency ranges to different rings
+            // Distribute 32 rings across the full spectrum
             let ring_magnitude = match ring {
-                // Inner rings (0-1): Sub-bass/Kick (0-4 bars)
-                0 | 1 => {
+                // Rings 0-7: Sub-bass/Kick (0-4 bars)
+                0..=7 => {
                     let sub_bass: f32 = self.spectrum_bars.iter().take(4).sum::<f32>() / 4.0;
                     sub_bass
                 }
-                // Mid-inner rings (2-3): Bass (4-12 bars)
-                2 | 3 => {
+                // Rings 8-15: Bass (4-12 bars)
+                8..=15 => {
                     let bass: f32 = self.spectrum_bars.iter().skip(4).take(8).sum::<f32>() / 8.0;
                     bass
                 }
-                // Mid-outer rings (4-5): Mids/Vocals (16-32 bars)
-                4 | 5 => {
+                // Rings 16-23: Mids/Vocals (16-32 bars)
+                16..=23 => {
                     let mids: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
                     mids
                 }
-                // Outer rings (6-7): Treble/Hi-hats (48-64 bars)
+                // Rings 24-31: Treble/Hi-hats (48-64 bars)
                 _ => {
                     let treble: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
                     treble
@@ -304,7 +305,7 @@ impl WavesApp {
         }
 
         // Layer 3: Radiating energy waves
-        let wave_count = 12;
+        let wave_count = 40;
         for wave in 0..wave_count {
             let wave_progress = (time * 2.0 + wave as f32 * 0.3) % 1.0;
             // Start waves from 20% radius to avoid center convergence
