@@ -215,12 +215,13 @@ impl WavesApp {
         let mid_magnitude: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
         let treble_magnitude: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
 
-        // Layer 1: Flowing spiral particles
+        // Layer 1: Flowing spiral particles (spinning inward)
         let particle_count = 200;
         for i in 0..particle_count {
             let particle_progress = i as f32 / particle_count as f32;
             let spiral_angle = particle_progress * 8.0 * PI + time * 1.5;
-            let spiral_radius = max_radius * 0.9 * particle_progress * (1.0 + bass_magnitude * 0.3);
+            // Reverse progress to spiral inward (1.0 at edge, 0.0 at center)
+            let spiral_radius = max_radius * 0.9 * (1.0 - particle_progress) * (1.0 + bass_magnitude * 0.3);
 
             let wave_offset = (time * 2.0 + particle_progress * 4.0 * PI).sin() * 20.0 * mid_magnitude;
 
@@ -229,7 +230,8 @@ impl WavesApp {
 
             let hue_shift = (time * 0.3 + particle_progress * 2.0) % 1.0;
             let intensity = 0.5 + avg_magnitude * 0.5;
-            let alpha = (255.0 * (1.0 - particle_progress) * 0.6 * intensity) as u8;
+            // Fade as particles spiral inward (bright at edge, fade toward center)
+            let alpha = (255.0 * particle_progress * 0.6 * intensity) as u8;
 
             let color = self.gradient_color(primary_color, hue_shift, intensity, alpha);
 
@@ -305,7 +307,8 @@ impl WavesApp {
         let wave_count = 12;
         for wave in 0..wave_count {
             let wave_progress = (time * 2.0 + wave as f32 * 0.3) % 1.0;
-            let wave_radius = max_radius * wave_progress;
+            // Start waves from 20% radius to avoid center convergence
+            let wave_radius = max_radius * (0.2 + wave_progress * 0.8);
 
             let segments = 48;
             let points: Vec<egui::Pos2> = (0..segments)
