@@ -301,73 +301,7 @@ impl WavesApp {
             }
         }
 
-        // Layer 3: Morphing geometric shapes with frequency-specific reactivity
-        let shape_count = 5;
-        for shape in 0..shape_count {
-            let shape_progress = shape as f32 / shape_count as f32;
-            let shape_angle = time * 0.8 + shape_progress * 2.0 * PI;
-            let orbit_radius = max_radius * 0.5;
-
-            let shape_x = center.x + shape_angle.cos() * orbit_radius;
-            let shape_y = center.y + shape_angle.sin() * orbit_radius;
-            let shape_center = egui::pos2(shape_x, shape_y);
-
-            // Assign different frequency ranges to different shapes
-            let shape_magnitude = match shape {
-                // Shape 0: Sub-bass/Kick (0-4 bars)
-                0 => {
-                    let sub_bass: f32 = self.spectrum_bars.iter().take(4).sum::<f32>() / 4.0;
-                    sub_bass
-                }
-                // Shape 1: Bass (4-12 bars)
-                1 => {
-                    let bass: f32 = self.spectrum_bars.iter().skip(4).take(8).sum::<f32>() / 8.0;
-                    bass
-                }
-                // Shape 2: Low-mids (12-24 bars)
-                2 => {
-                    let low_mids: f32 = self.spectrum_bars.iter().skip(12).take(12).sum::<f32>() / 12.0;
-                    low_mids
-                }
-                // Shape 3: High-mids (24-40 bars)
-                3 => {
-                    let high_mids: f32 = self.spectrum_bars.iter().skip(24).take(16).sum::<f32>() / 16.0;
-                    high_mids
-                }
-                // Shape 4: Treble/Hi-hats (48-64 bars)
-                _ => {
-                    let treble: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
-                    treble
-                }
-            };
-
-            let sides = 3 + (shape % 3);
-            let shape_radius = 15.0 + shape_magnitude * 25.0;
-            let rotation = time * (1.0 + shape as f32 * 0.5);
-
-            let shape_points: Vec<egui::Pos2> = (0..sides)
-                .map(|i| {
-                    let angle = (i as f32 / sides as f32) * 2.0 * PI + rotation;
-                    egui::pos2(
-                        shape_center.x + angle.cos() * shape_radius,
-                        shape_center.y + angle.sin() * shape_radius,
-                    )
-                })
-                .collect();
-
-            let hue_shift = (time * 0.5 + shape_progress * 1.5) % 1.0;
-            let alpha = (180.0 * (0.6 + shape_magnitude * 0.4)) as u8;
-            let color = self.gradient_color(primary_color, hue_shift, 0.8, alpha);
-
-            if shape_points.len() > 2 {
-                painter.add(egui::Shape::closed_line(
-                    shape_points,
-                    egui::Stroke::new(3.0, color),
-                ));
-            }
-        }
-
-        // Layer 4: Radiating energy waves
+        // Layer 3: Radiating energy waves
         let wave_count = 12;
         for wave in 0..wave_count {
             let wave_progress = (time * 2.0 + wave as f32 * 0.3) % 1.0;
@@ -401,7 +335,7 @@ impl WavesApp {
             }
         }
 
-        // Layer 5: Liquid flowing particles
+        // Layer 4: Liquid flowing particles
         let liquid_particle_count = 80;
         for i in 0..liquid_particle_count {
             let particle_id = i as f32 / liquid_particle_count as f32;
@@ -441,17 +375,19 @@ impl WavesApp {
             painter.circle_filled(egui::pos2(x, y), size * 1.5, glow_color);
         }
 
-        // Layer 6: Central starburst with audio reactivity
+        // Layer 5: Central starburst with smooth audio reactivity (eye-friendly)
         let ray_count = 32;
         for ray in 0..ray_count {
             let angle = (ray as f32 / ray_count as f32) * 2.0 * PI;
             let bar_index = (ray * self.spectrum_bars.len() / ray_count).min(self.spectrum_bars.len() - 1);
             let magnitude = self.spectrum_bars[bar_index];
 
-            let inner_radius = 5.0;
-            let outer_radius = inner_radius + magnitude * max_radius * 0.25;
+            // Larger inner radius to avoid concentrated bright point
+            let inner_radius = max_radius * 0.15;
+            let outer_radius = inner_radius + magnitude * max_radius * 0.2;
 
-            let pulse = (time * 3.0 + angle * 2.0).sin() * 0.15 + 1.0;
+            // Slower, smoother pulsing (reduced from 3.0 to 1.0)
+            let pulse = (time * 1.0 + angle * 1.5).sin() * 0.1 + 1.0;
             let final_outer = outer_radius * pulse;
 
             let start_pos = egui::pos2(
@@ -463,13 +399,16 @@ impl WavesApp {
                 center.y + angle.sin() * final_outer,
             );
 
-            let hue_shift = (angle / (2.0 * PI) + time * 0.4) % 1.0;
-            let alpha = (200.0 * magnitude) as u8;
-            let color = self.gradient_color(primary_color, hue_shift, magnitude, alpha.min(200));
+            let hue_shift = (angle / (2.0 * PI) + time * 0.3) % 1.0;
+
+            // Smoothed alpha with minimum value to avoid harsh flickering
+            let smoothed_magnitude = magnitude * 0.6 + 0.3; // Range: 0.3 to 0.9
+            let alpha = (120.0 * smoothed_magnitude) as u8; // Max 108 instead of 200
+            let color = self.gradient_color(primary_color, hue_shift, smoothed_magnitude * 0.8, alpha);
 
             painter.line_segment(
                 [start_pos, end_pos],
-                egui::Stroke::new(2.0, color),
+                egui::Stroke::new(1.5, color), // Thinner lines (1.5 instead of 2.0)
             );
         }
     }
