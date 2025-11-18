@@ -213,29 +213,29 @@ impl WavesApp {
         let mid_magnitude: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
 
         // Layer 1: Pulsating gradient rings with frequency-specific reactivity
-        let ring_count = 64;
+        let ring_count = 100;
         for ring in 0..ring_count {
             let ring_progress = ring as f32 / ring_count as f32;
 
             // Assign different frequency ranges to different rings
-            // Distribute 64 rings across the full spectrum
+            // Distribute 100 rings evenly across the full spectrum (25 per frequency range)
             let ring_magnitude = match ring {
-                // Rings 0-15: Sub-bass/Kick (0-4 bars)
-                0..=15 => {
+                // Rings 0-24: Sub-bass/Kick (0-4 bars) - 25 rings
+                0..=24 => {
                     let sub_bass: f32 = self.spectrum_bars.iter().take(4).sum::<f32>() / 4.0;
                     sub_bass
                 }
-                // Rings 16-31: Bass (4-12 bars)
-                16..=31 => {
+                // Rings 25-49: Bass (4-12 bars) - 25 rings
+                25..=49 => {
                     let bass: f32 = self.spectrum_bars.iter().skip(4).take(8).sum::<f32>() / 8.0;
                     bass
                 }
-                // Rings 32-47: Mids/Vocals (16-32 bars)
-                32..=47 => {
+                // Rings 50-74: Mids/Vocals (16-32 bars) - 25 rings
+                50..=74 => {
                     let mids: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
                     mids
                 }
-                // Rings 48-63: Treble/Hi-hats (48-64 bars)
+                // Rings 75-99: Treble/Hi-hats (48-64 bars) - 25 rings
                 _ => {
                     let treble: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
                     treble
@@ -266,7 +266,8 @@ impl WavesApp {
 
             let hue_shift = (time * 0.2 + ring_progress) % 1.0;
             let alpha = (200.0 * (1.0 - ring_progress * 0.5)) as u8;
-            let color = self.gradient_color(primary_color, hue_shift, 0.7 + ring_magnitude * 0.3, alpha);
+            // Pass magnitude for dynamic color intensity
+            let color = self.gradient_color(primary_color, hue_shift, ring_magnitude, alpha);
 
             if points.len() > 1 {
                 painter.add(egui::Shape::closed_line(
@@ -278,23 +279,25 @@ impl WavesApp {
 
     }
 
-    /// Helper function to create gradient colors based on primary color
-    fn gradient_color(&self, base_color: egui::Color32, hue_shift: f32, intensity: f32, alpha: u8) -> egui::Color32 {
-        // Extract frequency-specific magnitudes for dynamic brightness
-        let avg_magnitude: f32 = self.spectrum_bars.iter().take(32).sum::<f32>() / 32.0;
-
+    /// Helper function to create gradient colors based on primary color with magnitude-driven dynamics
+    fn gradient_color(&self, base_color: egui::Color32, hue_shift: f32, magnitude: f32, alpha: u8) -> egui::Color32 {
         // Extract base color components
         let base_r = base_color.r() as f32 / 255.0;
         let base_g = base_color.g() as f32 / 255.0;
         let base_b = base_color.b() as f32 / 255.0;
 
-        // Create gradient variations of the primary color
-        // hue_shift controls the brightness variation (lighter/darker shades)
-        let brightness_variation = 0.5 + hue_shift * 0.5; // Range: 0.5 to 1.0
+        // Create dramatic color dynamics based on magnitude
+        // When magnitude is 0: very dark (20% brightness)
+        // When magnitude is 1.0: very bright (up to 150% brightness with boost)
+        let base_brightness = 0.2 + magnitude * 0.8; // Range: 0.2 to 1.0
 
-        // Add audio reactivity to brightness
-        let audio_boost = 1.0 + avg_magnitude * 0.3;
-        let final_intensity = (intensity * brightness_variation * audio_boost).min(1.0);
+        // Add hue_shift for subtle variation across rings
+        let brightness_variation = 0.8 + hue_shift * 0.4; // Range: 0.8 to 1.2
+
+        // Boost bright colors even more for dramatic effect
+        let brightness_boost = if magnitude > 0.5 { 1.0 + (magnitude - 0.5) * 1.0 } else { 1.0 };
+
+        let final_intensity = (base_brightness * brightness_variation * brightness_boost).min(1.5);
 
         // Apply intensity to base color to create gradient
         let final_r = (base_r * final_intensity * 255.0).min(255.0) as u8;
