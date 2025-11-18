@@ -206,8 +206,8 @@ impl WavesApp {
             0.0
         };
 
-        let max_width = rect.width() * 0.5;
-        let max_height = rect.height() * 0.5;
+        let max_width = rect.width() * 0.45;
+        let max_height = rect.height() * 0.45;
         let max_radius = max_width.min(max_height);
 
         let avg_magnitude: f32 = self.spectrum_bars.iter().take(32).sum::<f32>() / 32.0;
@@ -348,7 +348,47 @@ impl WavesApp {
             }
         }
 
-        // Layer 5: Central starburst with audio reactivity
+        // Layer 5: Liquid flowing particles
+        let liquid_particle_count = 80;
+        for i in 0..liquid_particle_count {
+            let particle_id = i as f32 / liquid_particle_count as f32;
+
+            // Create flowing motion patterns
+            let flow_speed = 0.5 + (particle_id * 3.0).sin() * 0.3;
+            let flow_angle = time * flow_speed + particle_id * 2.0 * PI;
+
+            // Multiple orbital layers
+            let orbit_layer = (particle_id * 3.0).floor() as i32 % 3;
+            let orbit_radius = max_radius * (0.3 + orbit_layer as f32 * 0.15);
+
+            // Add wave motion for liquid effect
+            let wave_x = (time * 1.5 + particle_id * 5.0).sin() * 30.0 * mid_magnitude;
+            let wave_y = (time * 1.5 + particle_id * 5.0).cos() * 30.0 * mid_magnitude;
+
+            let x = center.x + flow_angle.cos() * orbit_radius + wave_x;
+            let y = center.y + flow_angle.sin() * orbit_radius + wave_y;
+
+            // Size varies with treble for shimmer effect
+            let base_size = 3.0 + (particle_id * 10.0).sin() * 2.0;
+            let size = base_size * (1.0 + treble_magnitude * 0.5);
+
+            // Color based on position and music
+            let hue_shift = (particle_id + time * 0.2 + bass_magnitude * 0.2) % 1.0;
+            let intensity = 0.7 + avg_magnitude * 0.3;
+            let alpha = (180.0 * (0.6 + mid_magnitude * 0.4)) as u8;
+
+            let color = self.gradient_color(primary_color, hue_shift, intensity, alpha);
+
+            // Draw particle with soft glow effect (multiple circles)
+            painter.circle_filled(egui::pos2(x, y), size, color);
+
+            // Outer glow
+            let glow_alpha = (alpha as f32 * 0.3) as u8;
+            let glow_color = self.gradient_color(primary_color, hue_shift, intensity * 0.7, glow_alpha);
+            painter.circle_filled(egui::pos2(x, y), size * 1.5, glow_color);
+        }
+
+        // Layer 6: Central starburst with audio reactivity
         let ray_count = 32;
         for ray in 0..ray_count {
             let angle = (ray as f32 / ray_count as f32) * 2.0 * PI;
@@ -381,35 +421,42 @@ impl WavesApp {
         }
     }
 
-    /// Helper function to create gradient colors based on primary color with audio reactivity
-    fn gradient_color(&self, base_color: egui::Color32, hue_shift: f32, intensity: f32, alpha: u8) -> egui::Color32 {
-        let r = base_color.r() as f32;
-        let g = base_color.g() as f32;
-        let b = base_color.b() as f32;
-
+    /// Helper function to create vibrant gradient colors with full audio reactivity
+    fn gradient_color(&self, _base_color: egui::Color32, hue_shift: f32, intensity: f32, alpha: u8) -> egui::Color32 {
         // Extract frequency-specific magnitudes for dynamic color shifting
         let bass_magnitude: f32 = self.spectrum_bars.iter().take(8).sum::<f32>() / 8.0;
         let mid_magnitude: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
         let treble_magnitude: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
 
-        // Apply hue shift for psychedelic effect with audio reactivity
-        let shift_amount = hue_shift * 0.5;
+        // Create full spectrum hue rotation (0.0 to 1.0 maps to full color wheel)
+        let hue = (hue_shift + bass_magnitude * 0.1 + mid_magnitude * 0.05) % 1.0;
 
-        // Bass boosts red channel, mids boost green, treble boosts blue
-        let bass_boost = 1.0 + bass_magnitude * 0.5;
-        let mid_boost = 1.0 + mid_magnitude * 0.5;
-        let treble_boost = 1.0 + treble_magnitude * 0.5;
+        // Convert HSV to RGB for vibrant psychedelic colors
+        let saturation = 0.8 + treble_magnitude * 0.2; // High saturation for vivid colors
+        let value = intensity;
 
-        // Create color mixing based on hue shift and audio frequencies
-        let mixed_r = r * (1.0 - shift_amount) + b * shift_amount;
-        let mixed_g = g * (1.0 - shift_amount) + r * shift_amount;
-        let mixed_b = b * (1.0 - shift_amount) + g * shift_amount;
+        // HSV to RGB conversion
+        let h = hue * 6.0;
+        let i = h.floor();
+        let f = h - i;
+        let p = value * (1.0 - saturation);
+        let q = value * (1.0 - saturation * f);
+        let t = value * (1.0 - saturation * (1.0 - f));
 
-        // Apply frequency-specific boosts for music-reactive colors
-        let new_r = ((mixed_r * bass_boost * intensity).min(255.0)) as u8;
-        let new_g = ((mixed_g * mid_boost * intensity).min(255.0)) as u8;
-        let new_b = ((mixed_b * treble_boost * intensity).min(255.0)) as u8;
+        let (r, g, b) = match i as i32 % 6 {
+            0 => (value, t, p),
+            1 => (q, value, p),
+            2 => (p, value, t),
+            3 => (p, q, value),
+            4 => (t, p, value),
+            _ => (value, p, q),
+        };
 
-        egui::Color32::from_rgba_unmultiplied(new_r, new_g, new_b, alpha)
+        // Boost specific channels based on frequency content
+        let final_r = ((r * 255.0) * (1.0 + bass_magnitude * 0.3)).min(255.0) as u8;
+        let final_g = ((g * 255.0) * (1.0 + mid_magnitude * 0.3)).min(255.0) as u8;
+        let final_b = ((b * 255.0) * (1.0 + treble_magnitude * 0.3)).min(255.0) as u8;
+
+        egui::Color32::from_rgba_unmultiplied(final_r, final_g, final_b, alpha)
     }
 }

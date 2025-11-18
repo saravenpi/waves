@@ -362,12 +362,11 @@ impl eframe::App for WavesApp {
                         continue;
                     }
 
-                    if *key == egui::Key::Slash && !modifiers.command && !modifiers.ctrl && !self.animation_fullscreen {
-                        if modifiers.shift {
-                            self.help_modal_open = !self.help_modal_open;
-                        } else {
-                            self.search_just_opened = true;
-                        }
+                    // Handle help modal with ? key (Shift+Slash)
+                    if *key == egui::Key::Slash && modifiers.shift && !self.animation_fullscreen {
+                        self.help_modal_open = !self.help_modal_open;
+                    } else if *key == egui::Key::Slash && !modifiers.command && !modifiers.ctrl && !self.animation_fullscreen {
+                        self.search_just_opened = true;
                     } else {
                         keys_to_handle.push(*key);
                     }
