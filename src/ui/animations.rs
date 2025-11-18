@@ -302,13 +302,14 @@ impl WavesApp {
                 })
                 .collect();
 
-            // Smoother alpha with minimum value to prevent blinking
+            // Smooth alpha with high minimum to prevent blinking
             let fade = 1.0 - wave_progress;
-            let smoothed_magnitude = avg_magnitude * 0.3 + 0.5; // Range: 0.5 to 0.8
-            let alpha = (180.0 * fade * smoothed_magnitude) as u8;
-            let color = self.gradient_color(primary_color, wave_progress, 0.9, alpha.min(120));
+            let smoothed_magnitude = avg_magnitude * 0.2 + 0.6; // Range: 0.6 to 0.8 (higher baseline)
+            let alpha = (150.0 * fade * smoothed_magnitude) as u8;
+            let final_alpha = alpha.max(30).min(100); // Ensure minimum visibility, cap maximum
+            let color = self.gradient_color(primary_color, wave_progress, 0.9, final_alpha);
 
-            if points.len() > 1 && alpha > 15 {
+            if points.len() > 1 {
                 painter.add(egui::Shape::closed_line(
                     points,
                     egui::Stroke::new(1.5, color),
