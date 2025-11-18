@@ -237,14 +237,38 @@ impl WavesApp {
             painter.circle_filled(egui::pos2(x, y), particle_size, color);
         }
 
-        // Layer 2: Pulsating gradient rings with warping
+        // Layer 2: Pulsating gradient rings with frequency-specific reactivity
         let ring_count = 8;
         for ring in 0..ring_count {
             let ring_progress = ring as f32 / ring_count as f32;
             let ring_phase = time * 1.2 + ring_progress * PI;
 
+            // Assign different frequency ranges to different rings
+            let ring_magnitude = match ring {
+                // Inner rings (0-1): Sub-bass/Kick (0-4 bars)
+                0 | 1 => {
+                    let sub_bass: f32 = self.spectrum_bars.iter().take(4).sum::<f32>() / 4.0;
+                    sub_bass
+                }
+                // Mid-inner rings (2-3): Bass (4-12 bars)
+                2 | 3 => {
+                    let bass: f32 = self.spectrum_bars.iter().skip(4).take(8).sum::<f32>() / 8.0;
+                    bass
+                }
+                // Mid-outer rings (4-5): Mids/Vocals (16-32 bars)
+                4 | 5 => {
+                    let mids: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
+                    mids
+                }
+                // Outer rings (6-7): Treble/Hi-hats (48-64 bars)
+                _ => {
+                    let treble: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
+                    treble
+                }
+            };
+
             let base_radius = max_radius * (0.2 + ring_progress * 0.7);
-            let pulse = 1.0 + bass_magnitude * 0.4 * (ring_phase * 2.0).sin();
+            let pulse = 1.0 + ring_magnitude * 0.4 * (ring_phase * 2.0).sin();
             let radius = base_radius * pulse;
 
             // Create warped circle using audio-reactive deformation
@@ -267,7 +291,7 @@ impl WavesApp {
 
             let hue_shift = (time * 0.2 + ring_progress) % 1.0;
             let alpha = (200.0 * (1.0 - ring_progress * 0.5)) as u8;
-            let color = self.gradient_color(primary_color, hue_shift, 0.7 + avg_magnitude * 0.3, alpha);
+            let color = self.gradient_color(primary_color, hue_shift, 0.7 + ring_magnitude * 0.3, alpha);
 
             if points.len() > 1 {
                 painter.add(egui::Shape::closed_line(
@@ -277,7 +301,7 @@ impl WavesApp {
             }
         }
 
-        // Layer 3: Morphing geometric shapes
+        // Layer 3: Morphing geometric shapes with frequency-specific reactivity
         let shape_count = 5;
         for shape in 0..shape_count {
             let shape_progress = shape as f32 / shape_count as f32;
@@ -288,8 +312,37 @@ impl WavesApp {
             let shape_y = center.y + shape_angle.sin() * orbit_radius;
             let shape_center = egui::pos2(shape_x, shape_y);
 
+            // Assign different frequency ranges to different shapes
+            let shape_magnitude = match shape {
+                // Shape 0: Sub-bass/Kick (0-4 bars)
+                0 => {
+                    let sub_bass: f32 = self.spectrum_bars.iter().take(4).sum::<f32>() / 4.0;
+                    sub_bass
+                }
+                // Shape 1: Bass (4-12 bars)
+                1 => {
+                    let bass: f32 = self.spectrum_bars.iter().skip(4).take(8).sum::<f32>() / 8.0;
+                    bass
+                }
+                // Shape 2: Low-mids (12-24 bars)
+                2 => {
+                    let low_mids: f32 = self.spectrum_bars.iter().skip(12).take(12).sum::<f32>() / 12.0;
+                    low_mids
+                }
+                // Shape 3: High-mids (24-40 bars)
+                3 => {
+                    let high_mids: f32 = self.spectrum_bars.iter().skip(24).take(16).sum::<f32>() / 16.0;
+                    high_mids
+                }
+                // Shape 4: Treble/Hi-hats (48-64 bars)
+                _ => {
+                    let treble: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
+                    treble
+                }
+            };
+
             let sides = 3 + (shape % 3);
-            let shape_radius = 15.0 + bass_magnitude * 25.0;
+            let shape_radius = 15.0 + shape_magnitude * 25.0;
             let rotation = time * (1.0 + shape as f32 * 0.5);
 
             let shape_points: Vec<egui::Pos2> = (0..sides)
@@ -303,7 +356,7 @@ impl WavesApp {
                 .collect();
 
             let hue_shift = (time * 0.5 + shape_progress * 1.5) % 1.0;
-            let alpha = (180.0 * (0.6 + treble_magnitude * 0.4)) as u8;
+            let alpha = (180.0 * (0.6 + shape_magnitude * 0.4)) as u8;
             let color = self.gradient_color(primary_color, hue_shift, 0.8, alpha);
 
             if shape_points.len() > 2 {
