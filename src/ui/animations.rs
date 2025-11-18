@@ -210,33 +210,32 @@ impl WavesApp {
         let max_height = rect.height() * 0.35;
         let max_radius = max_width.min(max_height);
 
-        let avg_magnitude: f32 = self.spectrum_bars.iter().take(32).sum::<f32>() / 32.0;
         let mid_magnitude: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
 
         // Layer 1: Pulsating gradient rings with frequency-specific reactivity
-        let ring_count = 32;
+        let ring_count = 64;
         for ring in 0..ring_count {
             let ring_progress = ring as f32 / ring_count as f32;
 
             // Assign different frequency ranges to different rings
-            // Distribute 32 rings across the full spectrum
+            // Distribute 64 rings across the full spectrum
             let ring_magnitude = match ring {
-                // Rings 0-7: Sub-bass/Kick (0-4 bars)
-                0..=7 => {
+                // Rings 0-15: Sub-bass/Kick (0-4 bars)
+                0..=15 => {
                     let sub_bass: f32 = self.spectrum_bars.iter().take(4).sum::<f32>() / 4.0;
                     sub_bass
                 }
-                // Rings 8-15: Bass (4-12 bars)
-                8..=15 => {
+                // Rings 16-31: Bass (4-12 bars)
+                16..=31 => {
                     let bass: f32 = self.spectrum_bars.iter().skip(4).take(8).sum::<f32>() / 8.0;
                     bass
                 }
-                // Rings 16-23: Mids/Vocals (16-32 bars)
-                16..=23 => {
+                // Rings 32-47: Mids/Vocals (16-32 bars)
+                32..=47 => {
                     let mids: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
                     mids
                 }
-                // Rings 24-31: Treble/Hi-hats (48-64 bars)
+                // Rings 48-63: Treble/Hi-hats (48-64 bars)
                 _ => {
                     let treble: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
                     treble
@@ -273,45 +272,6 @@ impl WavesApp {
                 painter.add(egui::Shape::closed_line(
                     points,
                     egui::Stroke::new(2.5, color),
-                ));
-            }
-        }
-
-        // Layer 2: Radiating energy waves
-        let wave_count = 80;
-        for wave in 0..wave_count {
-            let wave_progress = (time * 2.0 + wave as f32 * 0.3) % 1.0;
-            // Start waves from 20% radius to avoid center convergence
-            let wave_radius = max_radius * (0.2 + wave_progress * 0.8);
-
-            let segments = 48;
-            let points: Vec<egui::Pos2> = (0..segments)
-                .map(|i| {
-                    let angle = (i as f32 / segments as f32) * 2.0 * PI;
-                    let bar_index = (i * self.spectrum_bars.len() / segments).min(self.spectrum_bars.len() - 1);
-                    let magnitude = self.spectrum_bars[bar_index];
-
-                    let ripple = (angle * 5.0 - time * 4.0).sin() * magnitude * 20.0;
-                    let final_radius = wave_radius + ripple;
-
-                    egui::pos2(
-                        center.x + angle.cos() * final_radius,
-                        center.y + angle.sin() * final_radius,
-                    )
-                })
-                .collect();
-
-            // Very stable alpha to completely prevent blinking
-            let fade = 1.0 - wave_progress;
-            let smoothed_magnitude = avg_magnitude * 0.1 + 0.7; // Range: 0.7 to 0.8 (very high baseline)
-            let alpha = (120.0 * fade * smoothed_magnitude) as u8;
-            let final_alpha = alpha.max(40).min(80); // Narrow range for stability
-            let color = self.gradient_color(primary_color, wave_progress, 0.9, final_alpha);
-
-            if points.len() > 1 {
-                painter.add(egui::Shape::closed_line(
-                    points,
-                    egui::Stroke::new(1.5, color),
                 ));
             }
         }

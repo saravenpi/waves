@@ -47,7 +47,7 @@ impl AnimationType {
             AnimationType::Spectrum => "Spectrum Bars",
             AnimationType::WaveformPulse => "Waveform Pulse",
             AnimationType::CircleSpectrum => "Circle Spectrum",
-            AnimationType::Agbe => "Agbe",
+            AnimationType::Agbe => "Pulsating Rings",
         }
     }
 }
