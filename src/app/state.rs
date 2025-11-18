@@ -69,6 +69,7 @@ pub struct WavesApp {
     pub grouped_view: GroupedView,
     pub current_group_tracks: Vec<PathBuf>,
     pub help_modal_open: bool,
+    pub last_g_press: Option<std::time::Instant>,
 }
 
 pub enum CacheResult {
@@ -215,6 +216,7 @@ impl WavesApp {
             grouped_view: GroupedView::GroupList,
             current_group_tracks: Vec::new(),
             help_modal_open: false,
+            last_g_press: None,
         };
 
         app.update_columns();

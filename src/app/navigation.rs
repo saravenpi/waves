@@ -21,18 +21,111 @@ impl WavesApp {
         }
 
         match key {
+            // vim-style: 'g' followed by 'g' within 500ms to go to top
+            egui::Key::G => {
+                // Check if this is 'gg' (two g presses within 500ms)
+                let now = std::time::Instant::now();
+                if let Some(last_press) = self.last_g_press {
+                    if now.duration_since(last_press).as_millis() < 500 {
+                        // This is 'gg' - go to top
+                        let mut moved = false;
+                        match self.sidebar_view {
+                            SidebarView::FileBrowser => {
+                                if !self.columns[0].entries.is_empty() && self.columns[0].selected != 0 {
+                                    self.columns[0].selected = 0;
+                                    moved = true;
+                                }
+                            }
+                            SidebarView::Favorites => {
+                                if !self.favorites.is_empty() && self.favorites_selected != 0 {
+                                    self.favorites_selected = 0;
+                                    moved = true;
+                                }
+                            }
+                            SidebarView::Settings => {
+                                if self.settings_focused_item != 0 {
+                                    self.settings_focused_item = 0;
+                                    moved = true;
+                                }
+                            }
+                        }
+                        if moved {
+                            crate::cursor_sound::play_cursor_sound(
+                                self.config.ui_sounds_enabled,
+                                self.config.ui_sounds_volume
+                            );
+                        }
+                        self.last_g_press = None;
+                        return;
+                    }
+                }
+                // First 'g' press or Shift+G (Go to bottom)
+                // Check if Shift is held for 'G' (go to bottom)
+                if ctx.input(|i| i.modifiers.shift) {
+                    // Shift+G - go to bottom
+                    let mut moved = false;
+                    match self.sidebar_view {
+                        SidebarView::FileBrowser => {
+                            if !self.columns[0].entries.is_empty() {
+                                let last = self.columns[0].entries.len().saturating_sub(1);
+                                if self.columns[0].selected != last {
+                                    self.columns[0].selected = last;
+                                    moved = true;
+                                }
+                            }
+                        }
+                        SidebarView::Favorites => {
+                            if !self.favorites.is_empty() {
+                                let last = self.favorites.len().saturating_sub(1);
+                                if self.favorites_selected != last {
+                                    self.favorites_selected = last;
+                                    moved = true;
+                                }
+                            }
+                        }
+                        SidebarView::Settings => {
+                            let max_items = 10;
+                            let last = max_items - 1;
+                            if self.settings_focused_item != last {
+                                self.settings_focused_item = last;
+                                moved = true;
+                            }
+                        }
+                    }
+                    if moved {
+                        crate::cursor_sound::play_cursor_sound(
+                            self.config.ui_sounds_enabled,
+                            self.config.ui_sounds_volume
+                        );
+                    }
+                    self.last_g_press = None;
+                } else {
+                    // Just 'g' - remember this press for potential 'gg'
+                    self.last_g_press = Some(now);
+                }
+            }
             egui::Key::J => {
                 let mut moved = false;
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
-                        if self.columns[0].selected < self.columns[0].entries.len().saturating_sub(1) {
-                            self.columns[0].selected += 1;
+                        if !self.columns[0].entries.is_empty() {
+                            if self.columns[0].selected < self.columns[0].entries.len().saturating_sub(1) {
+                                self.columns[0].selected += 1;
+                            } else {
+                                // Wrap around to top
+                                self.columns[0].selected = 0;
+                            }
                             moved = true;
                         }
                     }
                     SidebarView::Favorites => {
-                        if self.favorites_selected < self.favorites.len().saturating_sub(1) {
-                            self.favorites_selected += 1;
+                        if !self.favorites.is_empty() {
+                            if self.favorites_selected < self.favorites.len().saturating_sub(1) {
+                                self.favorites_selected += 1;
+                            } else {
+                                // Wrap around to top
+                                self.favorites_selected = 0;
+                            }
                             moved = true;
                         }
                     }
@@ -40,8 +133,11 @@ impl WavesApp {
                         let max_items = 10;
                         if self.settings_focused_item < max_items - 1 {
                             self.settings_focused_item += 1;
-                            moved = true;
+                        } else {
+                            // Wrap around to top
+                            self.settings_focused_item = 0;
                         }
+                        moved = true;
                     }
                 }
                 if moved {
@@ -55,22 +151,36 @@ impl WavesApp {
                 let mut moved = false;
                 match self.sidebar_view {
                     SidebarView::FileBrowser => {
-                        if self.columns[0].selected > 0 {
-                            self.columns[0].selected -= 1;
+                        if !self.columns[0].entries.is_empty() {
+                            if self.columns[0].selected > 0 {
+                                self.columns[0].selected -= 1;
+                            } else {
+                                // Wrap around to bottom
+                                self.columns[0].selected = self.columns[0].entries.len().saturating_sub(1);
+                            }
                             moved = true;
                         }
                     }
                     SidebarView::Favorites => {
-                        if self.favorites_selected > 0 {
-                            self.favorites_selected -= 1;
+                        if !self.favorites.is_empty() {
+                            if self.favorites_selected > 0 {
+                                self.favorites_selected -= 1;
+                            } else {
+                                // Wrap around to bottom
+                                self.favorites_selected = self.favorites.len().saturating_sub(1);
+                            }
                             moved = true;
                         }
                     }
                     SidebarView::Settings => {
+                        let max_items = 10;
                         if self.settings_focused_item > 0 {
                             self.settings_focused_item -= 1;
-                            moved = true;
+                        } else {
+                            // Wrap around to bottom
+                            self.settings_focused_item = max_items - 1;
                         }
+                        moved = true;
                     }
                 }
                 if moved {
