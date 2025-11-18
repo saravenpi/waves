@@ -206,8 +206,8 @@ impl WavesApp {
             0.0
         };
 
-        let max_width = rect.width() * 0.45;
-        let max_height = rect.height() * 0.45;
+        let max_width = rect.width() * 0.40;
+        let max_height = rect.height() * 0.40;
         let max_radius = max_width.min(max_height);
 
         let avg_magnitude: f32 = self.spectrum_bars.iter().take(32).sum::<f32>() / 32.0;
@@ -279,7 +279,7 @@ impl WavesApp {
         }
 
         // Layer 2: Radiating energy waves
-        let wave_count = 20;
+        let wave_count = 40;
         for wave in 0..wave_count {
             let wave_progress = (time * 2.0 + wave as f32 * 0.3) % 1.0;
             // Start waves from 20% radius to avoid center convergence
