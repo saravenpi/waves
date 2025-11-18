@@ -206,37 +206,37 @@ impl WavesApp {
             0.0
         };
 
-        let max_width = rect.width() * 0.40;
-        let max_height = rect.height() * 0.40;
+        let max_width = rect.width() * 0.35;
+        let max_height = rect.height() * 0.35;
         let max_radius = max_width.min(max_height);
 
         let avg_magnitude: f32 = self.spectrum_bars.iter().take(32).sum::<f32>() / 32.0;
         let mid_magnitude: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
 
         // Layer 1: Pulsating gradient rings with frequency-specific reactivity
-        let ring_count = 16;
+        let ring_count = 32;
         for ring in 0..ring_count {
             let ring_progress = ring as f32 / ring_count as f32;
 
             // Assign different frequency ranges to different rings
-            // Distribute 16 rings across the full spectrum
+            // Distribute 32 rings across the full spectrum
             let ring_magnitude = match ring {
-                // Rings 0-3: Sub-bass/Kick (0-4 bars)
-                0..=3 => {
+                // Rings 0-7: Sub-bass/Kick (0-4 bars)
+                0..=7 => {
                     let sub_bass: f32 = self.spectrum_bars.iter().take(4).sum::<f32>() / 4.0;
                     sub_bass
                 }
-                // Rings 4-7: Bass (4-12 bars)
-                4..=7 => {
+                // Rings 8-15: Bass (4-12 bars)
+                8..=15 => {
                     let bass: f32 = self.spectrum_bars.iter().skip(4).take(8).sum::<f32>() / 8.0;
                     bass
                 }
-                // Rings 8-11: Mids/Vocals (16-32 bars)
-                8..=11 => {
+                // Rings 16-23: Mids/Vocals (16-32 bars)
+                16..=23 => {
                     let mids: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
                     mids
                 }
-                // Rings 12-15: Treble/Hi-hats (48-64 bars)
+                // Rings 24-31: Treble/Hi-hats (48-64 bars)
                 _ => {
                     let treble: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
                     treble
@@ -244,9 +244,8 @@ impl WavesApp {
             };
 
             let base_radius = max_radius * (0.2 + ring_progress * 0.7);
-            // Much stronger pulsating effect: rings expand outward based on frequency magnitude
-            let pulse = 1.0 + ring_magnitude * 0.8; // Direct frequency-based expansion (0.0 to 1.8x)
-            let radius = base_radius * pulse;
+            // Rings expand from 0 (center) when magnitude is 0, to full size at magnitude 1.0
+            let radius = base_radius * ring_magnitude * 2.0; // 0.0 to 2.0x expansion
 
             // Create warped circle using audio-reactive deformation
             let segments = 64;
@@ -279,7 +278,7 @@ impl WavesApp {
         }
 
         // Layer 2: Radiating energy waves
-        let wave_count = 40;
+        let wave_count = 80;
         for wave in 0..wave_count {
             let wave_progress = (time * 2.0 + wave as f32 * 0.3) % 1.0;
             // Start waves from 20% radius to avoid center convergence
@@ -302,11 +301,11 @@ impl WavesApp {
                 })
                 .collect();
 
-            // Smooth alpha with high minimum to prevent blinking
+            // Very stable alpha to completely prevent blinking
             let fade = 1.0 - wave_progress;
-            let smoothed_magnitude = avg_magnitude * 0.2 + 0.6; // Range: 0.6 to 0.8 (higher baseline)
-            let alpha = (150.0 * fade * smoothed_magnitude) as u8;
-            let final_alpha = alpha.max(30).min(100); // Ensure minimum visibility, cap maximum
+            let smoothed_magnitude = avg_magnitude * 0.1 + 0.7; // Range: 0.7 to 0.8 (very high baseline)
+            let alpha = (120.0 * fade * smoothed_magnitude) as u8;
+            let final_alpha = alpha.max(40).min(80); // Narrow range for stability
             let color = self.gradient_color(primary_color, wave_progress, 0.9, final_alpha);
 
             if points.len() > 1 {
@@ -319,41 +318,28 @@ impl WavesApp {
 
     }
 
-    /// Helper function to create vibrant gradient colors with full audio reactivity
-    fn gradient_color(&self, _base_color: egui::Color32, hue_shift: f32, intensity: f32, alpha: u8) -> egui::Color32 {
-        // Extract frequency-specific magnitudes for dynamic color shifting
-        let bass_magnitude: f32 = self.spectrum_bars.iter().take(8).sum::<f32>() / 8.0;
-        let mid_magnitude: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
-        let treble_magnitude: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
+    /// Helper function to create gradient colors based on primary color
+    fn gradient_color(&self, base_color: egui::Color32, hue_shift: f32, intensity: f32, alpha: u8) -> egui::Color32 {
+        // Extract frequency-specific magnitudes for dynamic brightness
+        let avg_magnitude: f32 = self.spectrum_bars.iter().take(32).sum::<f32>() / 32.0;
 
-        // Create full spectrum hue rotation (0.0 to 1.0 maps to full color wheel)
-        let hue = (hue_shift + bass_magnitude * 0.1 + mid_magnitude * 0.05) % 1.0;
+        // Extract base color components
+        let base_r = base_color.r() as f32 / 255.0;
+        let base_g = base_color.g() as f32 / 255.0;
+        let base_b = base_color.b() as f32 / 255.0;
 
-        // Convert HSV to RGB for vibrant colors
-        let saturation = 0.8 + treble_magnitude * 0.2; // High saturation for vivid colors
-        let value = intensity;
+        // Create gradient variations of the primary color
+        // hue_shift controls the brightness variation (lighter/darker shades)
+        let brightness_variation = 0.5 + hue_shift * 0.5; // Range: 0.5 to 1.0
 
-        // HSV to RGB conversion
-        let h = hue * 6.0;
-        let i = h.floor();
-        let f = h - i;
-        let p = value * (1.0 - saturation);
-        let q = value * (1.0 - saturation * f);
-        let t = value * (1.0 - saturation * (1.0 - f));
+        // Add audio reactivity to brightness
+        let audio_boost = 1.0 + avg_magnitude * 0.3;
+        let final_intensity = (intensity * brightness_variation * audio_boost).min(1.0);
 
-        let (r, g, b) = match i as i32 % 6 {
-            0 => (value, t, p),
-            1 => (q, value, p),
-            2 => (p, value, t),
-            3 => (p, q, value),
-            4 => (t, p, value),
-            _ => (value, p, q),
-        };
-
-        // Boost specific channels based on frequency content
-        let final_r = ((r * 255.0) * (1.0 + bass_magnitude * 0.3)).min(255.0) as u8;
-        let final_g = ((g * 255.0) * (1.0 + mid_magnitude * 0.3)).min(255.0) as u8;
-        let final_b = ((b * 255.0) * (1.0 + treble_magnitude * 0.3)).min(255.0) as u8;
+        // Apply intensity to base color to create gradient
+        let final_r = (base_r * final_intensity * 255.0).min(255.0) as u8;
+        let final_g = (base_g * final_intensity * 255.0).min(255.0) as u8;
+        let final_b = (base_b * final_intensity * 255.0).min(255.0) as u8;
 
         egui::Color32::from_rgba_unmultiplied(final_r, final_g, final_b, alpha)
     }
