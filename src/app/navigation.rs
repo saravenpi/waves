@@ -160,7 +160,8 @@ impl WavesApp {
                                     self.config.animation_type = match self.config.animation_type {
                                         AnimationType::Spectrum => AnimationType::WaveformPulse,
                                         AnimationType::WaveformPulse => AnimationType::CircleSpectrum,
-                                        AnimationType::CircleSpectrum => AnimationType::Spectrum,
+                                        AnimationType::CircleSpectrum => AnimationType::Agbe,
+                                        AnimationType::Agbe => AnimationType::Spectrum,
                                     };
                                     let _ = self.config.save();
                                     changed = true;
@@ -275,7 +276,8 @@ impl WavesApp {
                                 if self.config.animation {
                                     use crate::config::AnimationType;
                                     self.config.animation_type = match self.config.animation_type {
-                                        AnimationType::Spectrum => AnimationType::CircleSpectrum,
+                                        AnimationType::Spectrum => AnimationType::Agbe,
+                                        AnimationType::Agbe => AnimationType::CircleSpectrum,
                                         AnimationType::CircleSpectrum => AnimationType::WaveformPulse,
                                         AnimationType::WaveformPulse => AnimationType::Spectrum,
                                     };

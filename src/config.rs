@@ -21,6 +21,7 @@ pub enum AnimationType {
     Spectrum,
     WaveformPulse,
     CircleSpectrum,
+    Agbe,
 }
 
 impl Default for AnimationType {
@@ -36,6 +37,7 @@ impl AnimationType {
             AnimationType::Spectrum,
             AnimationType::WaveformPulse,
             AnimationType::CircleSpectrum,
+            AnimationType::Agbe,
         ]
     }
 
@@ -45,6 +47,7 @@ impl AnimationType {
             AnimationType::Spectrum => "Spectrum Bars",
             AnimationType::WaveformPulse => "Waveform Pulse",
             AnimationType::CircleSpectrum => "Circle Spectrum",
+            AnimationType::Agbe => "Agbe (Psychedelic)",
         }
     }
 }
