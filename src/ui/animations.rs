@@ -324,10 +324,13 @@ impl WavesApp {
                 })
                 .collect();
 
-            let alpha = (255.0 * (1.0 - wave_progress) * avg_magnitude) as u8;
-            let color = self.gradient_color(primary_color, wave_progress, 0.9, alpha.min(150));
+            // Smoother alpha with minimum value to prevent blinking
+            let fade = 1.0 - wave_progress;
+            let smoothed_magnitude = avg_magnitude * 0.3 + 0.5; // Range: 0.5 to 0.8
+            let alpha = (180.0 * fade * smoothed_magnitude) as u8;
+            let color = self.gradient_color(primary_color, wave_progress, 0.9, alpha.min(120));
 
-            if points.len() > 1 && alpha > 10 {
+            if points.len() > 1 && alpha > 15 {
                 painter.add(egui::Shape::closed_line(
                     points,
                     egui::Stroke::new(1.5, color),
@@ -373,43 +376,6 @@ impl WavesApp {
             let glow_alpha = (alpha as f32 * 0.3) as u8;
             let glow_color = self.gradient_color(primary_color, hue_shift, intensity * 0.7, glow_alpha);
             painter.circle_filled(egui::pos2(x, y), size * 1.5, glow_color);
-        }
-
-        // Layer 5: Central starburst with smooth audio reactivity (eye-friendly)
-        let ray_count = 32;
-        for ray in 0..ray_count {
-            let angle = (ray as f32 / ray_count as f32) * 2.0 * PI;
-            let bar_index = (ray * self.spectrum_bars.len() / ray_count).min(self.spectrum_bars.len() - 1);
-            let magnitude = self.spectrum_bars[bar_index];
-
-            // Larger inner radius to avoid concentrated bright point
-            let inner_radius = max_radius * 0.15;
-            let outer_radius = inner_radius + magnitude * max_radius * 0.2;
-
-            // Slower, smoother pulsing (reduced from 3.0 to 1.0)
-            let pulse = (time * 1.0 + angle * 1.5).sin() * 0.1 + 1.0;
-            let final_outer = outer_radius * pulse;
-
-            let start_pos = egui::pos2(
-                center.x + angle.cos() * inner_radius,
-                center.y + angle.sin() * inner_radius,
-            );
-            let end_pos = egui::pos2(
-                center.x + angle.cos() * final_outer,
-                center.y + angle.sin() * final_outer,
-            );
-
-            let hue_shift = (angle / (2.0 * PI) + time * 0.3) % 1.0;
-
-            // Smoothed alpha with minimum value to avoid harsh flickering
-            let smoothed_magnitude = magnitude * 0.6 + 0.3; // Range: 0.3 to 0.9
-            let alpha = (120.0 * smoothed_magnitude) as u8; // Max 108 instead of 200
-            let color = self.gradient_color(primary_color, hue_shift, smoothed_magnitude * 0.8, alpha);
-
-            painter.line_segment(
-                [start_pos, end_pos],
-                egui::Stroke::new(1.5, color), // Thinner lines (1.5 instead of 2.0)
-            );
         }
     }
 
