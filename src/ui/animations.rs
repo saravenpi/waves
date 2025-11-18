@@ -341,45 +341,6 @@ impl WavesApp {
             }
         }
 
-        // Layer 4: Liquid flowing particles
-        let liquid_particle_count = 80;
-        for i in 0..liquid_particle_count {
-            let particle_id = i as f32 / liquid_particle_count as f32;
-
-            // Create flowing motion patterns
-            let flow_speed = 0.5 + (particle_id * 3.0).sin() * 0.3;
-            let flow_angle = time * flow_speed + particle_id * 2.0 * PI;
-
-            // Multiple orbital layers
-            let orbit_layer = (particle_id * 3.0).floor() as i32 % 3;
-            let orbit_radius = max_radius * (0.3 + orbit_layer as f32 * 0.15);
-
-            // Add wave motion for liquid effect
-            let wave_x = (time * 1.5 + particle_id * 5.0).sin() * 30.0 * mid_magnitude;
-            let wave_y = (time * 1.5 + particle_id * 5.0).cos() * 30.0 * mid_magnitude;
-
-            let x = center.x + flow_angle.cos() * orbit_radius + wave_x;
-            let y = center.y + flow_angle.sin() * orbit_radius + wave_y;
-
-            // Size varies with treble for shimmer effect
-            let base_size = 3.0 + (particle_id * 10.0).sin() * 2.0;
-            let size = base_size * (1.0 + treble_magnitude * 0.5);
-
-            // Color based on position and music
-            let hue_shift = (particle_id + time * 0.2 + bass_magnitude * 0.2) % 1.0;
-            let intensity = 0.7 + avg_magnitude * 0.3;
-            let alpha = (180.0 * (0.6 + mid_magnitude * 0.4)) as u8;
-
-            let color = self.gradient_color(primary_color, hue_shift, intensity, alpha);
-
-            // Draw particle with soft glow effect (multiple circles)
-            painter.circle_filled(egui::pos2(x, y), size, color);
-
-            // Outer glow
-            let glow_alpha = (alpha as f32 * 0.3) as u8;
-            let glow_color = self.gradient_color(primary_color, hue_shift, intensity * 0.7, glow_alpha);
-            painter.circle_filled(egui::pos2(x, y), size * 1.5, glow_color);
-        }
     }
 
     /// Helper function to create vibrant gradient colors with full audio reactivity
