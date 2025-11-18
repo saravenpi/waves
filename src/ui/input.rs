@@ -1,6 +1,7 @@
 use eframe::egui;
 use crate::metadata::extract_metadata;
 use crate::audio::PlayerState;
+use crate::album_cover::extract_album_cover;
 
 pub struct MetadataEditor {
     pub file_path: std::path::PathBuf,
@@ -8,6 +9,9 @@ pub struct MetadataEditor {
     pub artist: String,
     pub date: String,
     pub cover_path: Option<String>,
+    pub has_existing_cover: bool,
+    pub existing_cover_data: Option<Vec<u8>>,
+    pub cover_changed: bool,
     pub just_opened: bool,
     pub error_message: Option<String>,
 }
@@ -219,12 +223,17 @@ pub fn handle_navigation<T: NavigationHandler>(app: &mut T, key: egui::Key, ctx:
                     if let Some(entry) = entry {
                         if !entry.is_dir {
                             let (title, artist, _album, date, _track, _duration) = extract_metadata(&entry.path);
+                            let existing_cover_data = extract_album_cover(&entry.path);
+                            let has_existing_cover = existing_cover_data.is_some();
                             app.set_metadata_editor(Some(MetadataEditor {
                                 file_path: entry.path.clone(),
                                 title,
                                 artist: artist.unwrap_or_default(),
                                 date: date.unwrap_or_default(),
                                 cover_path: None,
+                                has_existing_cover,
+                                existing_cover_data,
+                                cover_changed: false,
                                 just_opened: true,
                                 error_message: None,
                             }));
@@ -237,12 +246,17 @@ pub fn handle_navigation<T: NavigationHandler>(app: &mut T, key: egui::Key, ctx:
                     if let Some(fav) = fav {
                         if !fav.is_dir {
                             let (title, artist, _album, date, _track, _duration) = extract_metadata(&fav.path);
+                            let existing_cover_data = extract_album_cover(&fav.path);
+                            let has_existing_cover = existing_cover_data.is_some();
                             app.set_metadata_editor(Some(MetadataEditor {
                                 file_path: fav.path.clone(),
                                 title,
                                 artist: artist.unwrap_or_default(),
                                 date: date.unwrap_or_default(),
                                 cover_path: None,
+                                has_existing_cover,
+                                existing_cover_data,
+                                cover_changed: false,
                                 just_opened: true,
                                 error_message: None,
                             }));

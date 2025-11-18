@@ -578,12 +578,17 @@ impl WavesApp {
                         if let Some(entry) = self.columns[0].entries.get(self.columns[0].selected).cloned() {
                             if !entry.is_dir {
                                 let (title, artist, _album, date, _track, _duration) = extract_metadata(&entry.path);
+                                let existing_cover_data = crate::album_cover::extract_album_cover(&entry.path);
+                                let has_existing_cover = existing_cover_data.is_some();
                                 self.metadata_editor = Some(MetadataEditor {
                                     file_path: entry.path.clone(),
                                     title,
                                     artist: artist.unwrap_or_default(),
                                     date: date.unwrap_or_default(),
                                     cover_path: None,
+                                    has_existing_cover,
+                                    existing_cover_data,
+                                    cover_changed: false,
                                     just_opened: true,
                                     error_message: None,
                                 });
@@ -594,12 +599,17 @@ impl WavesApp {
                         if let Some(fav) = self.favorites.get(self.favorites_selected).cloned() {
                             if !fav.is_dir {
                                 let (title, artist, _album, date, _track, _duration) = extract_metadata(&fav.path);
+                                let existing_cover_data = crate::album_cover::extract_album_cover(&fav.path);
+                                let has_existing_cover = existing_cover_data.is_some();
                                 self.metadata_editor = Some(MetadataEditor {
                                     file_path: fav.path.clone(),
                                     title,
                                     artist: artist.unwrap_or_default(),
                                     date: date.unwrap_or_default(),
                                     cover_path: None,
+                                    has_existing_cover,
+                                    existing_cover_data,
+                                    cover_changed: false,
                                     just_opened: true,
                                     error_message: None,
                                 });

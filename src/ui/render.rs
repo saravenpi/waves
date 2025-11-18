@@ -363,7 +363,11 @@ impl eframe::App for WavesApp {
                     }
 
                     if *key == egui::Key::Slash && !modifiers.command && !modifiers.ctrl && !self.animation_fullscreen {
-                        self.search_just_opened = true;
+                        if modifiers.shift {
+                            self.help_modal_open = !self.help_modal_open;
+                        } else {
+                            self.search_just_opened = true;
+                        }
                     } else {
                         keys_to_handle.push(*key);
                     }
@@ -434,7 +438,7 @@ impl eframe::App for WavesApp {
                 .show(ctx, |ui| {
                     ui.separator();
                     let volume_percent = (self.volume * 100.0) as i32;
-                    let status_text = format!(" h/j/k/l: navigate | ENTER: select/play | SPACE: pause | ←/→: prev/next | b: browse mode | n: new | r: rename | y: copy | x: cut | p: paste | d: delete | f: fav | TAB: view | ↑/↓: vol ({}%)", volume_percent);
+                    let status_text = format!(" h/j/k/l: navigate | ENTER: select/play | SPACE: pause | ←/→: prev/next | TAB: view | ↑/↓: vol ({}%) | ?: help", volume_percent);
                     ui.label(egui::RichText::new(status_text).size(18.0).color(egui::Color32::WHITE).monospace());
                 });
         }
@@ -2324,39 +2328,77 @@ impl eframe::App for WavesApp {
 
                             ui.add_space(15.0);
 
-                            ui.horizontal(|ui| {
-                                if let Some(cover_path) = &editor.cover_path {
-                                    let filename = std::path::Path::new(cover_path)
-                                        .file_name()
-                                        .and_then(|n| n.to_str())
-                                        .unwrap_or("unknown");
-                                    ui.label(
-                                        egui::RichText::new(format!("📎 {}", filename))
-                                            .size(12.0)
-                                            .color(egui::Color32::from_rgb(150, 150, 150))
-                                    );
-                                    if ui.button("✕").clicked() {
-                                        editor.cover_path = None;
+                            if editor.has_existing_cover && !editor.cover_changed {
+                                if let Some(cover_data) = &editor.existing_cover_data {
+                                    if let Ok(img) = image::load_from_memory(cover_data) {
+                                        let size = [img.width() as usize, img.height() as usize];
+                                        let rgba = img.to_rgba8();
+                                        let pixels = rgba.as_flat_samples();
+                                        let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                                            size,
+                                            pixels.as_slice()
+                                        );
+
+                                        let texture = ctx.load_texture(
+                                            "existing_cover",
+                                            color_image,
+                                            Default::default()
+                                        );
+
+                                        ui.add(egui::Image::new(&texture).max_size(egui::vec2(100.0, 100.0)));
+
+                                        ui.add_space(5.0);
+                                        ui.label(
+                                            egui::RichText::new("✓ Existing cover (will be preserved)")
+                                                .size(12.0)
+                                                .color(egui::Color32::from_rgb(100, 200, 100))
+                                        );
                                     }
-                                } else {
-                                    ui.label(
-                                        egui::RichText::new("No cover selected")
-                                            .size(12.0)
-                                            .color(egui::Color32::from_rgb(100, 100, 100))
-                                    );
                                 }
-                            });
+                            } else if let Some(cover_path) = &editor.cover_path {
+                                let filename = std::path::Path::new(cover_path)
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("unknown");
+                                ui.label(
+                                    egui::RichText::new(format!("📎 New cover: {}", filename))
+                                        .size(12.0)
+                                        .color(egui::Color32::from_rgb(150, 150, 150))
+                                );
+                            } else if editor.has_existing_cover && editor.cover_changed {
+                                ui.label(
+                                    egui::RichText::new("⚠ Existing cover will be removed")
+                                        .size(12.0)
+                                        .color(egui::Color32::from_rgb(255, 150, 100))
+                                );
+                            } else {
+                                ui.label(
+                                    egui::RichText::new("No cover")
+                                        .size(12.0)
+                                        .color(egui::Color32::from_rgb(100, 100, 100))
+                                );
+                            }
 
                             ui.add_space(5.0);
 
-                            if ui.button("Select Cover Image...").clicked() {
-                                if let Some(path) = rfd::FileDialog::new()
-                                    .add_filter("Images", &["png", "jpg", "jpeg"])
-                                    .pick_file()
-                                {
-                                    editor.cover_path = Some(path.to_string_lossy().to_string());
+                            ui.horizontal(|ui| {
+                                if ui.button("Select Cover Image...").clicked() {
+                                    if let Some(path) = rfd::FileDialog::new()
+                                        .add_filter("Images", &["png", "jpg", "jpeg"])
+                                        .pick_file()
+                                    {
+                                        editor.cover_path = Some(path.to_string_lossy().to_string());
+                                        editor.cover_changed = true;
+                                    }
                                 }
-                            }
+
+                                if editor.has_existing_cover || editor.cover_path.is_some() {
+                                    if ui.button("Remove Cover").clicked() {
+                                        editor.cover_path = None;
+                                        editor.cover_changed = true;
+                                    }
+                                }
+                            });
 
                             ui.add_space(20.0);
 
@@ -2413,15 +2455,38 @@ impl eframe::App for WavesApp {
                 let title = editor.title.clone();
                 let artist = editor.artist.clone();
                 let date = editor.date.clone();
-                let cover_path = editor.cover_path.clone();
 
-                match save_audio_metadata(&file_path, &title, &artist, &date, cover_path.as_deref()) {
+                let cover_path_to_use = if !editor.cover_changed && editor.has_existing_cover {
+                    if let Some(existing_cover_data) = &editor.existing_cover_data {
+                        let temp_dir = std::env::temp_dir();
+                        let temp_cover_path = temp_dir.join("waves_temp_cover.jpg");
+                        match std::fs::write(&temp_cover_path, existing_cover_data) {
+                            Ok(_) => Some(temp_cover_path.to_string_lossy().to_string()),
+                            Err(e) => {
+                                eprintln!("Failed to write temp cover file: {}", e);
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    editor.cover_path.clone()
+                };
+
+                match save_audio_metadata(&file_path, &title, &artist, &date, cover_path_to_use.as_deref()) {
                     Err(e) => {
                         eprintln!("Failed to save metadata: {}", e);
                         editor.error_message = Some(format!("Error: {}", e));
                     }
                     Ok(()) => {
                         eprintln!("Metadata saved successfully, refreshing UI...");
+
+                        if let Some(temp_path) = cover_path_to_use {
+                            if temp_path.contains("waves_temp_cover") {
+                                let _ = std::fs::remove_file(&temp_path);
+                            }
+                        }
 
                         self.album_cover_cache.remove(&file_path);
                         self.last_selected_file = None;
@@ -2443,6 +2508,134 @@ impl eframe::App for WavesApp {
 
             if close_editor {
                 self.metadata_editor = None;
+            }
+        }
+
+        if self.help_modal_open {
+            let mut close_help = false;
+
+            let window_response = egui::Window::new("")
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .collapsible(false)
+                .resizable(false)
+                .title_bar(false)
+                .fixed_size([700.0, 600.0])
+                .frame(egui::Frame {
+                    fill: egui::Color32::TRANSPARENT,
+                    stroke: egui::Stroke::NONE,
+                    ..Default::default()
+                })
+                .show(ctx, |ui| {
+                    egui::Frame {
+                        fill: egui::Color32::BLACK,
+                        stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
+                        inner_margin: egui::Margin::same(20.0),
+                        ..Default::default()
+                    }
+                    .show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            ui.label(
+                                egui::RichText::new("Keyboard Shortcuts")
+                                    .size(20.0)
+                                    .color(egui::Color32::WHITE)
+                                    .strong()
+                            );
+
+                            ui.add_space(15.0);
+
+                            egui::ScrollArea::vertical()
+                                .max_height(500.0)
+                                .show(ui, |ui| {
+                                    let keybind = |ui: &mut egui::Ui, key: &str, desc: &str| {
+                                        ui.horizontal(|ui| {
+                                            ui.label(
+                                                egui::RichText::new(key)
+                                                    .size(14.0)
+                                                    .color(self.primary_color())
+                                                    .monospace()
+                                            );
+                                            ui.label(
+                                                egui::RichText::new(desc)
+                                                    .size(14.0)
+                                                    .color(egui::Color32::from_rgb(200, 200, 200))
+                                            );
+                                        });
+                                        ui.add_space(5.0);
+                                    };
+
+                                    ui.label(egui::RichText::new("Navigation").size(16.0).color(egui::Color32::WHITE).strong());
+                                    ui.add_space(5.0);
+                                    keybind(ui, "h/j/k/l", "Navigate left/down/up/right");
+                                    keybind(ui, "ENTER", "Select directory or play file");
+                                    keybind(ui, "TAB", "Cycle views (Files → Favorites → Settings)");
+                                    keybind(ui, "ESC", "Cancel clipboard operation");
+
+                                    ui.add_space(10.0);
+                                    ui.label(egui::RichText::new("Playback").size(16.0).color(egui::Color32::WHITE).strong());
+                                    ui.add_space(5.0);
+                                    keybind(ui, "SPACE", "Pause/resume playback");
+                                    keybind(ui, "←/→", "Previous/next track");
+                                    keybind(ui, "↑/↓", "Increase/decrease volume");
+
+                                    ui.add_space(10.0);
+                                    ui.label(egui::RichText::new("File Operations").size(16.0).color(egui::Color32::WHITE).strong());
+                                    ui.add_space(5.0);
+                                    keybind(ui, "n", "Create new folder");
+                                    keybind(ui, "r", "Rename selected file/folder");
+                                    keybind(ui, "y", "Copy (yank) selected item");
+                                    keybind(ui, "x", "Cut selected item");
+                                    keybind(ui, "p", "Paste into current directory");
+                                    keybind(ui, "d", "Delete selected item");
+
+                                    ui.add_space(10.0);
+                                    ui.label(egui::RichText::new("Organization").size(16.0).color(egui::Color32::WHITE).strong());
+                                    ui.add_space(5.0);
+                                    keybind(ui, "f", "Toggle favorite for selected item");
+                                    keybind(ui, "m", "Edit metadata (audio files only)");
+                                    keybind(ui, "/", "Search files");
+
+                                    ui.add_space(10.0);
+                                    ui.label(egui::RichText::new("View").size(16.0).color(egui::Color32::WHITE).strong());
+                                    ui.add_space(5.0);
+                                    keybind(ui, "b", "Toggle browse mode");
+                                    keybind(ui, "?", "Show/hide this help");
+                                });
+
+                            ui.add_space(10.0);
+
+                            ui.horizontal(|ui| {
+                                if ui.button("Close").clicked() {
+                                    close_help = true;
+                                }
+                            });
+
+                            ui.add_space(5.0);
+
+                            ui.label(
+                                egui::RichText::new("Press ESC or ? to close")
+                                    .size(10.0)
+                                    .color(egui::Color32::from_rgb(100, 100, 100))
+                            );
+                        });
+
+                        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                            close_help = true;
+                        }
+                    });
+                });
+
+            if let Some(response) = window_response {
+                if ctx.input(|i| i.pointer.primary_released()) {
+                    if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
+                        if !response.response.rect.contains(pos) {
+                            close_help = true;
+                        }
+                    }
+                }
+            }
+
+            if close_help {
+                self.help_modal_open = false;
             }
         }
 
@@ -2666,12 +2859,17 @@ impl eframe::App for WavesApp {
                     }
                     ContextMenuAction::EditMetadata => {
                         let (title, artist, _album, date, _track, _duration) = extract_metadata(path);
+                        let existing_cover_data = crate::album_cover::extract_album_cover(path);
+                        let has_existing_cover = existing_cover_data.is_some();
                         self.metadata_editor = Some(MetadataEditor {
                             file_path: path.clone(),
                             title,
                             artist: artist.unwrap_or_default(),
                             date: date.unwrap_or_default(),
                             cover_path: None,
+                            has_existing_cover,
+                            existing_cover_data,
+                            cover_changed: false,
                             just_opened: true,
                             error_message: None,
                         });
