@@ -211,59 +211,32 @@ impl WavesApp {
         let max_radius = max_width.min(max_height);
 
         let avg_magnitude: f32 = self.spectrum_bars.iter().take(32).sum::<f32>() / 32.0;
-        let bass_magnitude: f32 = self.spectrum_bars.iter().take(8).sum::<f32>() / 8.0;
         let mid_magnitude: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
-        let treble_magnitude: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
 
-        // Layer 1: Flowing spiral particles (spinning inward)
-        let particle_count = 600;
-        for i in 0..particle_count {
-            let particle_progress = i as f32 / particle_count as f32;
-            let spiral_angle = particle_progress * 8.0 * PI + time * 1.5;
-            // Reverse progress to spiral inward (1.0 at edge, 0.0 at center)
-            let spiral_radius = max_radius * 0.9 * (1.0 - particle_progress) * (1.0 + bass_magnitude * 0.3);
-
-            let wave_offset = (time * 2.0 + particle_progress * 4.0 * PI).sin() * 20.0 * mid_magnitude;
-
-            let x = center.x + spiral_angle.cos() * spiral_radius + wave_offset;
-            let y = center.y + spiral_angle.sin() * spiral_radius + wave_offset;
-
-            let hue_shift = (time * 0.3 + particle_progress * 2.0) % 1.0;
-            let intensity = 0.5 + avg_magnitude * 0.5;
-            // Fade as particles spiral inward (bright at edge, fade toward center)
-            let alpha = (255.0 * particle_progress * 0.6 * intensity) as u8;
-
-            let color = self.gradient_color(primary_color, hue_shift, intensity, alpha);
-
-            let particle_size = 2.0 + treble_magnitude * 3.0;
-            painter.circle_filled(egui::pos2(x, y), particle_size, color);
-        }
-
-        // Layer 2: Pulsating gradient rings with frequency-specific reactivity
-        let ring_count = 32;
+        // Layer 1: Pulsating gradient rings with frequency-specific reactivity
+        let ring_count = 16;
         for ring in 0..ring_count {
             let ring_progress = ring as f32 / ring_count as f32;
-            let ring_phase = time * 1.2 + ring_progress * PI;
 
             // Assign different frequency ranges to different rings
-            // Distribute 32 rings across the full spectrum
+            // Distribute 16 rings across the full spectrum
             let ring_magnitude = match ring {
-                // Rings 0-7: Sub-bass/Kick (0-4 bars)
-                0..=7 => {
+                // Rings 0-3: Sub-bass/Kick (0-4 bars)
+                0..=3 => {
                     let sub_bass: f32 = self.spectrum_bars.iter().take(4).sum::<f32>() / 4.0;
                     sub_bass
                 }
-                // Rings 8-15: Bass (4-12 bars)
-                8..=15 => {
+                // Rings 4-7: Bass (4-12 bars)
+                4..=7 => {
                     let bass: f32 = self.spectrum_bars.iter().skip(4).take(8).sum::<f32>() / 8.0;
                     bass
                 }
-                // Rings 16-23: Mids/Vocals (16-32 bars)
-                16..=23 => {
+                // Rings 8-11: Mids/Vocals (16-32 bars)
+                8..=11 => {
                     let mids: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
                     mids
                 }
-                // Rings 24-31: Treble/Hi-hats (48-64 bars)
+                // Rings 12-15: Treble/Hi-hats (48-64 bars)
                 _ => {
                     let treble: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
                     treble
@@ -271,7 +244,8 @@ impl WavesApp {
             };
 
             let base_radius = max_radius * (0.2 + ring_progress * 0.7);
-            let pulse = 1.0 + ring_magnitude * 0.4 * (ring_phase * 2.0).sin();
+            // Much stronger pulsating effect: rings expand outward based on frequency magnitude
+            let pulse = 1.0 + ring_magnitude * 0.8; // Direct frequency-based expansion (0.0 to 1.8x)
             let radius = base_radius * pulse;
 
             // Create warped circle using audio-reactive deformation
@@ -304,8 +278,8 @@ impl WavesApp {
             }
         }
 
-        // Layer 3: Radiating energy waves
-        let wave_count = 40;
+        // Layer 2: Radiating energy waves
+        let wave_count = 20;
         for wave in 0..wave_count {
             let wave_progress = (time * 2.0 + wave as f32 * 0.3) % 1.0;
             // Start waves from 20% radius to avoid center convergence
@@ -354,7 +328,7 @@ impl WavesApp {
         // Create full spectrum hue rotation (0.0 to 1.0 maps to full color wheel)
         let hue = (hue_shift + bass_magnitude * 0.1 + mid_magnitude * 0.05) % 1.0;
 
-        // Convert HSV to RGB for vibrant psychedelic colors
+        // Convert HSV to RGB for vibrant colors
         let saturation = 0.8 + treble_magnitude * 0.2; // High saturation for vivid colors
         let value = intensity;
 
