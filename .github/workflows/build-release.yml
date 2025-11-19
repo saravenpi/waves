@@ -56,6 +56,10 @@ jobs:
           cp target/release/waves Waves.app/Contents/MacOS/waves
           chmod +x Waves.app/Contents/MacOS/waves
 
+          # Copy launcher script
+          cp waves-launcher.sh Waves.app/Contents/MacOS/waves-launcher
+          chmod +x Waves.app/Contents/MacOS/waves-launcher
+
           # Copy logo
           cp waves_logo.png Waves.app/Contents/Resources/
 
@@ -66,7 +70,7 @@ jobs:
           <plist version="1.0">
           <dict>
               <key>CFBundleExecutable</key>
-              <string>waves</string>
+              <string>waves-launcher</string>
               <key>CFBundleIdentifier</key>
               <string>com.saravenpi.waves</string>
               <key>CFBundleName</key>
@@ -109,6 +113,12 @@ jobs:
           </dict>
           </plist>
           EOF
+
+          # Ad-hoc code sign the app bundle (allows running without Apple Developer certificate)
+          codesign --deep --force --sign - Waves.app
+
+          # Remove extended attributes (quarantine flags)
+          xattr -cr Waves.app
 
           # Install create-dmg
           brew install create-dmg
