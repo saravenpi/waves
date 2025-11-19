@@ -26,6 +26,8 @@ impl WavesApp {
             return;
         }
 
+        self.song_loading = true;
+
         let waveform = self.waveform_cache
             .get(path)
             .cloned()
@@ -71,6 +73,8 @@ impl WavesApp {
                                             album_cover: None,
                                         });
 
+                                        self.song_loading = false;
+
                                         if !self.waveform_cache.contains_key(path) {
                                             let path_clone = path.to_path_buf();
                                             let sender = self.waveform_sender.clone();
@@ -110,16 +114,24 @@ impl WavesApp {
                                             }
                                         });
                                     }
-                                    Err(_) => {},
+                                    Err(_) => {
+                                        self.song_loading = false;
+                                    },
                                 }
                             }
-                            Err(_) => {},
+                            Err(_) => {
+                                self.song_loading = false;
+                            },
                         }
                     }
-                    Err(_) => {},
+                    Err(_) => {
+                        self.song_loading = false;
+                    },
                 }
             }
-            Err(_) => {},
+            Err(_) => {
+                self.song_loading = false;
+            },
         }
     }
 

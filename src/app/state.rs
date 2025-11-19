@@ -3,6 +3,7 @@ use crate::types::{Column, ClipboardOperation, Favorite, SidebarView, BrowsingMo
 use crate::audio::PlayerState;
 use crate::file_operations::SearchResult;
 use crate::ui::input::MetadataEditor;
+use crate::update::{UpdateChecker, UpdateStatus};
 
 use rustfft::FftPlanner;
 use std::collections::HashMap;
@@ -70,6 +71,12 @@ pub struct WavesApp {
     pub current_group_tracks: Vec<PathBuf>,
     pub help_modal_open: bool,
     pub last_g_press: Option<std::time::Instant>,
+    pub song_loading: bool,
+    pub update_checker: UpdateChecker,
+    pub current_update_status: Option<UpdateStatus>,
+    pub show_update_dialog: bool,
+    pub update_available_version: Option<String>,
+    pub update_in_progress: bool,
 }
 
 pub enum CacheResult {
@@ -217,6 +224,12 @@ impl WavesApp {
             current_group_tracks: Vec::new(),
             help_modal_open: false,
             last_g_press: None,
+            song_loading: false,
+            update_checker: UpdateChecker::new(),
+            current_update_status: None,
+            show_update_dialog: false,
+            update_available_version: None,
+            update_in_progress: false,
         };
 
         app.update_columns();

@@ -180,6 +180,36 @@ impl eframe::App for WavesApp {
             ctx.request_repaint();
         }
 
+        while let Ok(status) = self.update_checker.status_receiver.try_recv() {
+            match &status {
+                crate::update::UpdateStatus::Checking => {
+                    self.update_in_progress = true;
+                }
+                crate::update::UpdateStatus::UpdateAvailable(version) => {
+                    self.update_available_version = Some(version.clone());
+                    self.show_update_dialog = true;
+                    self.update_in_progress = false;
+                }
+                crate::update::UpdateStatus::NoUpdateAvailable => {
+                    self.update_in_progress = false;
+                }
+                crate::update::UpdateStatus::Downloading(_) => {
+                    self.update_in_progress = true;
+                }
+                crate::update::UpdateStatus::Installing => {
+                    self.update_in_progress = true;
+                }
+                crate::update::UpdateStatus::Success => {
+                    self.update_in_progress = false;
+                }
+                crate::update::UpdateStatus::Error(_) => {
+                    self.update_in_progress = false;
+                }
+            }
+            self.current_update_status = Some(status);
+            ctx.request_repaint();
+        }
+
         if ctx.input(|i| i.pointer.is_moving()) {
             self.last_mouse_movement = std::time::Instant::now();
         }
@@ -1523,6 +1553,58 @@ impl eframe::App for WavesApp {
                                             });
                                             ui.label(egui::RichText::new("Use ~ for home directory (e.g., ~/Music)").size(12.0).color(egui::Color32::from_rgb(140, 140, 140)));
                                         });
+
+                                        ui.separator();
+                                        ui.add_space(15.0);
+
+                                        let is_focused = self.settings_focused_item == 10;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
+                                            ui.label(egui::RichText::new("Updates").size(16.0).color(egui::Color32::WHITE));
+                                            ui.add_space(5.0);
+                                            ui.horizontal(|ui| {
+                                                ui.add_enabled_ui(!self.update_in_progress, |ui| {
+                                                    if ui.button("Check for Updates").clicked() {
+                                                        self.update_checker.check_for_updates();
+                                                    }
+                                                });
+
+                                                if let Some(ref status) = self.current_update_status {
+                                                    match status {
+                                                        crate::update::UpdateStatus::Checking => {
+                                                            ui.label(egui::RichText::new("Checking...").size(14.0).color(egui::Color32::from_rgb(200, 200, 200)));
+                                                        }
+                                                        crate::update::UpdateStatus::UpdateAvailable(version) => {
+                                                            ui.label(egui::RichText::new(format!("Update available: v{}", version)).size(14.0).color(egui::Color32::from_rgb(100, 200, 100)));
+                                                        }
+                                                        crate::update::UpdateStatus::NoUpdateAvailable => {
+                                                            ui.label(egui::RichText::new("You're up to date!").size(14.0).color(egui::Color32::from_rgb(100, 200, 100)));
+                                                        }
+                                                        crate::update::UpdateStatus::Downloading(progress) => {
+                                                            ui.label(egui::RichText::new(format!("Downloading... {}%", progress)).size(14.0).color(egui::Color32::from_rgb(200, 200, 100)));
+                                                        }
+                                                        crate::update::UpdateStatus::Installing => {
+                                                            ui.label(egui::RichText::new("Installing...").size(14.0).color(egui::Color32::from_rgb(200, 200, 100)));
+                                                        }
+                                                        crate::update::UpdateStatus::Success => {
+                                                            ui.label(egui::RichText::new("Update successful! Please restart.").size(14.0).color(egui::Color32::from_rgb(100, 200, 100)));
+                                                        }
+                                                        crate::update::UpdateStatus::Error(msg) => {
+                                                            ui.label(egui::RichText::new(format!("Error: {}", msg)).size(14.0).color(egui::Color32::from_rgb(200, 100, 100)));
+                                                        }
+                                                    }
+                                                }
+                                            });
+                                            ui.label(egui::RichText::new(format!("Current version: v{}", env!("CARGO_PKG_VERSION"))).size(12.0).color(egui::Color32::from_rgb(140, 140, 140)));
+                                        });
+
                                         ui.add_space(30.0);
                                     });
                             }
@@ -2880,6 +2962,121 @@ impl eframe::App for WavesApp {
             if ctx.input(|i| i.pointer.primary_released()) {
                 self.context_menu = None;
             }
+        }
+
+        if self.show_update_dialog {
+            egui::Window::new("Update Available")
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .show(ctx, |ui| {
+                    ui.set_min_width(400.0);
+
+                    if let Some(ref version) = self.update_available_version {
+                        ui.label(
+                            egui::RichText::new(format!("A new version of WAVES is available: v{}", version))
+                                .size(16.0)
+                                .color(egui::Color32::WHITE)
+                        );
+                        ui.add_space(10.0);
+                        ui.label(
+                            egui::RichText::new(format!("Current version: v{}", env!("CARGO_PKG_VERSION")))
+                                .size(14.0)
+                                .color(egui::Color32::from_gray(180))
+                        );
+                        ui.add_space(20.0);
+
+                        if let Some(ref status) = self.current_update_status {
+                            match status {
+                                crate::update::UpdateStatus::Downloading(progress) => {
+                                    ui.label(
+                                        egui::RichText::new(format!("Downloading... {}%", progress))
+                                            .size(14.0)
+                                            .color(egui::Color32::from_rgb(200, 200, 100))
+                                    );
+                                    ui.add_space(10.0);
+                                }
+                                crate::update::UpdateStatus::Installing => {
+                                    ui.label(
+                                        egui::RichText::new("Installing update...")
+                                            .size(14.0)
+                                            .color(egui::Color32::from_rgb(200, 200, 100))
+                                    );
+                                    ui.add_space(10.0);
+                                }
+                                crate::update::UpdateStatus::Success => {
+                                    ui.label(
+                                        egui::RichText::new("Update successful! Please restart WAVES.")
+                                            .size(14.0)
+                                            .color(egui::Color32::from_rgb(100, 200, 100))
+                                    );
+                                    ui.add_space(10.0);
+                                }
+                                crate::update::UpdateStatus::Error(msg) => {
+                                    ui.label(
+                                        egui::RichText::new(format!("Error: {}", msg))
+                                            .size(14.0)
+                                            .color(egui::Color32::from_rgb(200, 100, 100))
+                                    );
+                                    ui.add_space(10.0);
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        ui.horizontal(|ui| {
+                            match &self.current_update_status {
+                                Some(crate::update::UpdateStatus::Success) => {
+                                    if ui.button("Close").clicked() {
+                                        self.show_update_dialog = false;
+                                    }
+                                }
+                                Some(crate::update::UpdateStatus::Error(_)) => {
+                                    if ui.button("Close").clicked() {
+                                        self.show_update_dialog = false;
+                                        self.current_update_status = None;
+                                    }
+                                }
+                                Some(crate::update::UpdateStatus::Downloading(_)) |
+                                Some(crate::update::UpdateStatus::Installing) => {
+                                }
+                                _ => {
+                                    ui.add_enabled_ui(!self.update_in_progress, |ui| {
+                                        if ui.button("Update Now").clicked() {
+                                            self.update_checker.perform_update();
+                                        }
+                                    });
+                                    if ui.button("Later").clicked() {
+                                        self.show_update_dialog = false;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+        }
+
+        if self.song_loading {
+            egui::CentralPanel::default()
+                .frame(egui::Frame::none().fill(egui::Color32::from_black_alpha(200)))
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        let available_height = ui.available_height();
+                        ui.add_space(available_height * 0.4);
+
+                        crate::ui::spinner::square_spinner(ui, 50.0, self.primary_color());
+
+                        ui.add_space(15.0);
+
+                        ui.label(
+                            egui::RichText::new("Loading song...")
+                                .size(16.0)
+                                .color(egui::Color32::from_gray(200))
+                        );
+                    });
+                });
+
+            ctx.request_repaint();
         }
     }
 }

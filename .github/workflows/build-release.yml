@@ -30,10 +30,23 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
 
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
       - name: Build release
         run: cargo build --release
 
       - name: Create DMG
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           # Create app bundle structure
           mkdir -p Waves.app/Contents/MacOS
@@ -47,7 +60,7 @@ jobs:
           cp waves_logo.png Waves.app/Contents/Resources/
 
           # Create Info.plist
-          cat > Waves.app/Contents/Info.plist << 'EOF'
+          cat > Waves.app/Contents/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -59,9 +72,9 @@ jobs:
               <key>CFBundleName</key>
               <string>Waves</string>
               <key>CFBundleVersion</key>
-              <string>0.1.0</string>
+              <string>${VERSION}</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.1.0</string>
+              <string>${VERSION}</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleIconFile</key>
@@ -101,11 +114,21 @@ jobs:
           mkdir -p installers
           hdiutil create -volname "Waves" -srcfolder Waves.app -ov -format UDZO installers/waves-macos.dmg
 
-      - name: Upload macOS artifact
+          # Create tar.gz for self-update (DMG doesn't work with self_update library)
+          mkdir -p installers/macos-update
+          cp target/release/waves installers/macos-update/
+          cd installers
+          tar -czf "waves-${VERSION}-macos.tar.gz" -C macos-update waves
+          # Also keep the versionless one for backward compatibility
+          cp "waves-${VERSION}-macos.tar.gz" waves-macos.tar.gz
+
+      - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: waves-macos
-          path: installers/waves-macos.dmg
+          path: |
+            installers/waves-macos.dmg
+            installers/waves-*-macos.tar.gz
 
   build-linux:
     name: Build Linux
@@ -132,10 +155,23 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
 
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
       - name: Build release
         run: cargo build --release
 
       - name: Create tar.gz package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p installers/linux-package
           cp target/release/waves installers/linux-package/
@@ -158,11 +194,18 @@ jobs:
           cd installers
           tar -czf waves-linux-x86_64.tar.gz linux-package
 
-      - name: Upload Linux artifact
+          # Create separate update archive with binary at root (for self_update)
+          mkdir -p linux-update
+          cp ../target/release/waves linux-update/
+          tar -czf "waves-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" -C linux-update waves
+
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: waves-linux
-          path: installers/waves-linux-x86_64.tar.gz
+          path: |
+            installers/waves-linux-x86_64.tar.gz
+            installers/waves-*-x86_64-unknown-linux-gnu.tar.gz
 
   build-windows:
     name: Build Windows
@@ -184,11 +227,25 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
 
+      - name: Extract version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref }}" -like "refs/tags/*") {
+            $VERSION = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            $VERSION = (Get-Content Cargo.toml | Select-String '^version' | Select-Object -First 1) -replace '.*"(.*)".*', '$1'
+          }
+          echo "version=$VERSION" >> $env:GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
       - name: Build release
         run: cargo build --release
 
       - name: Create Windows package
         shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           New-Item -ItemType Directory -Force -Path installers/windows-package
           Copy-Item target/release/waves.exe installers/windows-package/
@@ -210,11 +267,18 @@ jobs:
 
           Compress-Archive -Path installers/windows-package/* -DestinationPath installers/waves-windows-x86_64.zip -Force
 
-      - name: Upload Windows artifact
+          # Create separate update archive with binary at root (for self_update)
+          New-Item -ItemType Directory -Force -Path installers/windows-update
+          Copy-Item target/release/waves.exe installers/windows-update/
+          Compress-Archive -Path installers/windows-update/waves.exe -DestinationPath "installers/waves-$env:VERSION-x86_64-pc-windows-msvc.zip" -Force
+
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: waves-windows
-          path: installers/waves-windows-x86_64.zip
+          path: |
+            installers/waves-windows-x86_64.zip
+            installers/waves-*-x86_64-pc-windows-msvc.zip
 
   create-release:
     name: Create Release
@@ -232,8 +296,11 @@ jobs:
         with:
           files: |
             artifacts/waves-macos/waves-macos.dmg
+            artifacts/waves-macos/waves-*-macos.tar.gz
             artifacts/waves-linux/waves-linux-x86_64.tar.gz
+            artifacts/waves-linux/waves-*-x86_64-unknown-linux-gnu.tar.gz
             artifacts/waves-windows/waves-windows-x86_64.zip
+            artifacts/waves-windows/waves-*-x86_64-pc-windows-msvc.zip
           draft: false
           prerelease: false
         env:
