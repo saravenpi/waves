@@ -134,6 +134,7 @@ jobs:
             --icon "Waves.app" 200 190 \
             --hide-extension "Waves.app" \
             --app-drop-link 600 185 \
+            --background "waves_logo.png" \
             "installers/waves-macos.dmg" \
             "Waves.app"
 

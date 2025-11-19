@@ -12,7 +12,35 @@ WAVES is a cross-platform GUI music player. Choose your platform below for insta
 
 ## macOS Installation
 
-## Quick Install
+### First Time Opening (Important!)
+
+If you downloaded Waves from GitHub and see **"Waves.app is damaged and can't be opened"**:
+
+**Method 1 - Right-Click to Open (Recommended):**
+1. Drag Waves.app to your Applications folder
+2. **Right-click** (or Control-click) on Waves.app
+3. Select **"Open"** from the menu
+4. Click **"Open"** in the security dialog
+5. Waves will now open normally in the future
+
+**Method 2 - Terminal Command:**
+```bash
+# After dragging to Applications folder
+sudo xattr -cr /Applications/Waves.app
+codesign --force --deep --sign - /Applications/Waves.app
+```
+
+**Method 3 - System Settings:**
+1. Try to open Waves normally (it will fail)
+2. Go to **System Settings > Privacy & Security**
+3. Scroll down and click **"Open Anyway"** next to the Waves message
+4. Try opening Waves again and click **"Open"**
+
+This is a one-time step required because Waves is not notarized with Apple (which requires a paid developer account).
+
+---
+
+### Quick Install
 
 Run the installation script from the project directory:
 

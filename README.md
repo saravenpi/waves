@@ -21,6 +21,8 @@
 
 ## Installation
 
+> **⚠️ macOS Users:** If you download the DMG from GitHub releases and see "Waves.app is damaged", **right-click the app** and select **"Open"** instead of double-clicking. This is a one-time step to bypass Gatekeeper. [See detailed instructions](INSTALL.md#first-time-opening-important)
+
 ### Prerequisites
 - Rust toolchain (install from [rustup.rs](https://rustup.rs))
 

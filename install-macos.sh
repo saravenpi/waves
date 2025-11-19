@@ -55,6 +55,10 @@ else
     echo "⚠️  Warning: sips or iconutil not found, skipping icon creation"
 fi
 
+# Code sign the app (ad-hoc signature)
+echo "✍️  Code signing app..."
+codesign --deep --force --sign - "$APP_DIR" 2>/dev/null || echo "⚠️  Code signing failed (continuing anyway)"
+
 # Remove quarantine attribute
 echo "🔓 Removing quarantine attribute..."
 xattr -cr "$APP_DIR"
