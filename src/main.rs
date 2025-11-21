@@ -57,7 +57,7 @@ fn main() -> eframe::Result {
         .with_inner_size([1200.0, 700.0])
         .with_title("Waves")
         .with_decorations(config.decorations)
-        .with_transparent(config.window_opacity < 100.0);
+        .with_transparent(true);
 
     if let Some(icon) = icon {
         viewport = viewport.with_icon(icon);

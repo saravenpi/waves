@@ -1131,6 +1131,7 @@ impl eframe::App for WavesApp {
                                             if opacity != self.config.window_opacity {
                                                 self.config.window_opacity = opacity;
                                                 let _ = self.config.save();
+                                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Transparent(opacity < 100.0));
                                             }
                                         });
                                         ui.add_space(15.0);
