@@ -50,6 +50,7 @@ impl WavesApp {
                             }
                         }
                         if moved {
+                            self.scroll_to_selection = true;
                             crate::cursor_sound::play_cursor_sound(
                                 self.config.ui_sounds_enabled,
                                 self.config.ui_sounds_volume
@@ -93,6 +94,7 @@ impl WavesApp {
                         }
                     }
                     if moved {
+                        self.scroll_to_selection = true;
                         crate::cursor_sound::play_cursor_sound(
                             self.config.ui_sounds_enabled,
                             self.config.ui_sounds_volume
@@ -141,6 +143,7 @@ impl WavesApp {
                     }
                 }
                 if moved {
+                    self.scroll_to_selection = true;
                     crate::cursor_sound::play_cursor_sound(
                         self.config.ui_sounds_enabled,
                         self.config.ui_sounds_volume
@@ -184,6 +187,7 @@ impl WavesApp {
                     }
                 }
                 if moved {
+                    self.scroll_to_selection = true;
                     crate::cursor_sound::play_cursor_sound(
                         self.config.ui_sounds_enabled,
                         self.config.ui_sounds_volume

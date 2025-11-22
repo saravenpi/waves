@@ -783,8 +783,7 @@ impl eframe::App for WavesApp {
                                             egui::Sense::click()
                                         );
 
-                                        // Auto-scroll to selected item on keyboard navigation
-                                        if is_selected {
+                                        if is_selected && self.scroll_to_selection {
                                             ui.scroll_to_rect(rect, Some(egui::Align::Center));
                                         }
 
@@ -926,8 +925,7 @@ impl eframe::App for WavesApp {
                                                 egui::Sense::click()
                                             );
 
-                                            // Auto-scroll to selected item on keyboard navigation
-                                            if is_selected {
+                                            if is_selected && self.scroll_to_selection {
                                                 ui.scroll_to_rect(rect, Some(egui::Align::Center));
                                             }
 
@@ -1753,6 +1751,8 @@ impl eframe::App for WavesApp {
                 }
             }
         }
+
+        self.scroll_to_selection = false;
 
         let central_opacity = ((self.config.window_opacity / 100.0) * 255.0).min(255.0) as u8;
 

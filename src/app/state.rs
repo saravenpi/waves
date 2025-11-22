@@ -79,6 +79,7 @@ pub struct WavesApp {
     pub show_update_dialog: bool,
     pub update_available_version: Option<String>,
     pub update_in_progress: bool,
+    pub scroll_to_selection: bool,
 }
 
 pub enum CacheResult {
@@ -244,6 +245,7 @@ impl WavesApp {
             show_update_dialog: false,
             update_available_version: None,
             update_in_progress: false,
+            scroll_to_selection: false,
         };
 
         app.update_columns();
