@@ -4,7 +4,7 @@ use crate::metadata::extract_metadata;
 use crate::app::state::SongLoadData;
 use crate::WavesApp;
 use eframe::egui;
-use rodio::{Decoder, OutputStream, Sink, Source};
+use rodio::{Decoder, OutputStreamBuilder, Sink, Source};
 use rustfft::num_complex::Complex;
 use std::collections::VecDeque;
 use std::fs::File;
@@ -70,13 +70,22 @@ impl WavesApp {
             Err(_) => return,
         };
 
-        match OutputStream::try_default() {
-            Ok((_stream, stream_handle)) => {
-                match Sink::try_new(&stream_handle) {
-                    Ok(sink) => {
+        match OutputStreamBuilder::open_default_stream() {
+            Ok(_stream) => {
+                let sink = Sink::connect_new(_stream.mixer());
+                {
                         let cursor = Cursor::new(data.file_bytes);
+                        let ext = data.path.extension()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("")
+                            .to_lowercase();
                         let decoder_result = std::panic::catch_unwind(
-                            std::panic::AssertUnwindSafe(|| Decoder::new(cursor))
+                            std::panic::AssertUnwindSafe(|| {
+                                match ext.as_str() {
+                                    "m4a" | "mp4" | "aac" => Decoder::new_mp4(cursor),
+                                    _ => Decoder::new(cursor),
+                                }
+                            })
                         );
                         let source = match decoder_result {
                             Ok(Ok(s)) => s,
@@ -97,7 +106,7 @@ impl WavesApp {
                         let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
 
                         let captured_source = SpectrumCapture::new(
-                            source.convert_samples::<f32>(),
+                            source,
                             audio_buffer.clone()
                         );
 
@@ -161,10 +170,6 @@ impl WavesApp {
                                 }
                             }
                         });
-                    }
-                    Err(_) => {
-                        self.song_loading = false;
-                    },
                 }
             }
             Err(_) => {
@@ -615,10 +620,18 @@ impl WavesApp {
                                     audio_buffer.lock().unwrap().clear();
 
                                     let buf_reader = BufReader::new(file);
-                                    if let Ok(source) = Decoder::new(buf_reader) {
+                                    let ext = current_path.extension()
+                                        .and_then(|s| s.to_str())
+                                        .unwrap_or("")
+                                        .to_lowercase();
+                                    let decoder_result = match ext.as_str() {
+                                        "m4a" | "mp4" | "aac" => Decoder::new_mp4(buf_reader),
+                                        _ => Decoder::new(buf_reader),
+                                    };
+                                    if let Ok(source) = decoder_result {
                                         let source_with_skip = source.skip_duration(target_duration);
                                         let captured_source = SpectrumCapture::new(
-                                            source_with_skip.convert_samples::<f32>(),
+                                            source_with_skip,
                                             audio_buffer.clone()
                                         );
 

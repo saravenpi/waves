@@ -1,4 +1,4 @@
-use rodio::{Decoder, Source};
+use rodio::Decoder;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -33,7 +33,15 @@ pub fn extract_waveform(path: &Path) -> Vec<f32> {
     };
 
     let buf_reader = BufReader::new(file);
-    let source = match Decoder::new(buf_reader) {
+    let ext = path.extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let source = match ext.as_str() {
+        "m4a" | "mp4" | "aac" => Decoder::new_mp4(buf_reader),
+        _ => Decoder::new(buf_reader),
+    };
+    let source = match source {
         Ok(s) => s,
         Err(e) => {
             eprintln!("Failed to decode file for waveform extraction {:?}: {}", path, e);
@@ -41,9 +49,7 @@ pub fn extract_waveform(path: &Path) -> Vec<f32> {
         }
     };
 
-    let audio_samples: Vec<f32> = source
-        .convert_samples::<f32>()
-        .collect();
+    let audio_samples: Vec<f32> = source.collect();
 
     if audio_samples.is_empty() {
         eprintln!("No audio samples found in {:?}", path);

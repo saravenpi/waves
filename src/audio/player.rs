@@ -110,12 +110,18 @@ impl PlayerState {
             .map_err(|e| format!("Failed to open file: {}", e))?;
 
         let buf_reader = BufReader::new(file);
-        let source = Decoder::new(buf_reader)
-            .map_err(|e| format!("Failed to decode file: {}", e))?;
+        let ext = current_path.extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        let source = match ext.as_str() {
+            "m4a" | "mp4" | "aac" => Decoder::new_mp4(buf_reader),
+            _ => Decoder::new(buf_reader),
+        }.map_err(|e| format!("Failed to decode file: {}", e))?;
 
         let source_with_skip = source.skip_duration(target_duration);
         let captured_source = SpectrumCapture::new(
-            source_with_skip.convert_samples::<f32>(),
+            source_with_skip,
             audio_buffer.clone()
         );
 

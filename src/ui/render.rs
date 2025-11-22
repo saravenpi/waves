@@ -2311,7 +2311,7 @@ impl eframe::App for WavesApp {
                             );
                         });
 
-                        ui.add_space(40.0);
+                        ui.add_space(30.0);
                     });
                 } else {
                     ui.centered_and_justified(|ui| {
