@@ -176,12 +176,26 @@ pub fn extract_duration(path: &Path) -> Duration {
         };
 
         let buf_reader = BufReader::new(file);
-        let source = match Decoder::new(buf_reader) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("Failed to decode file for duration extraction {:?}: {}", path, e);
-                return Duration::from_secs(1);
-            }
+        let ext = path.extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        let source = match ext.as_str() {
+            "m4a" | "mp4" | "aac" => match Decoder::new_mp4(buf_reader) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("Failed to decode M4A file for duration extraction {:?}: {}", path, e);
+                    return Duration::from_secs(1);
+                }
+            },
+            _ => match Decoder::new(buf_reader) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("Failed to decode file for duration extraction {:?}: {}", path, e);
+                    return Duration::from_secs(1);
+                }
+            },
         };
 
         if let Some(duration) = source.total_duration() {
