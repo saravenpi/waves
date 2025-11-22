@@ -54,6 +54,37 @@ WAVES is a cross-platform GUI music player written in Rust using the eframe/egui
 ### Cleanup
 - `make clean` or `cargo clean` - Remove all build artifacts
 
+## Creating Releases
+
+**IMPORTANT:** When creating a GitHub release, you MUST build and upload binary assets for all platforms. The app has a self-update feature that downloads these assets.
+
+### Required Assets for Each Release
+- `waves-macos.tar.gz` - macOS binary (tar.gz containing the `waves` binary)
+- `waves-linux-x86_64.tar.gz` - Linux binary
+- `waves-windows-x86_64.zip` - Windows binary
+
+### Release Steps
+1. Bump version in `Cargo.toml`
+2. Commit: `git commit -m "🔖 bump version to vX.Y.Z"`
+3. Push: `git push origin master`
+4. Create tag: `git tag vX.Y.Z && git push origin vX.Y.Z`
+5. Create release: `gh release create vX.Y.Z --title "WAVES vX.Y.Z" --notes "..."`
+6. Build and upload assets:
+   ```bash
+   cargo build --release
+   cd target/release
+   tar -czvf waves-macos.tar.gz waves
+   gh release upload vX.Y.Z waves-macos.tar.gz --clobber
+   ```
+
+### Cross-Platform Builds
+For Linux and Windows builds, either:
+- Use GitHub Actions CI/CD (preferred)
+- Cross-compile using `cross` tool
+- Build on native machines
+
+The self-update feature (`self_update` crate) looks for assets matching the target platform name.
+
 ## Architecture
 
 ### Multi-Module Design
