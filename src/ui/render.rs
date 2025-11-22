@@ -2152,6 +2152,57 @@ impl eframe::App for WavesApp {
                                     if prev_response.clicked() {
                                         self.play_previous_song(ctx);
                                     }
+
+                                    ui.add_space(8.0);
+
+                                    let current_file = self.player.lock().unwrap()
+                                        .as_ref()
+                                        .map(|state| state.current_file.clone());
+
+                                    if let Some(ref file_path) = current_file {
+                                        let is_current_favorited = self.favorites.iter().any(|f| f.path == *file_path);
+                                        let fav_color = if is_current_favorited {
+                                            self.primary_color()
+                                        } else {
+                                            egui::Color32::WHITE
+                                        };
+                                        let fav_icon = if is_current_favorited { "★" } else { "☆" };
+                                        let fav_response = IconButton::new(fav_icon).size(24.0).color(fav_color).show(ui);
+                                        fav_response.surrender_focus();
+                                        if fav_response.hovered() {
+                                            let rect = fav_response.rect;
+                                            ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, fav_color));
+                                        }
+                                        if fav_response.is_pointer_button_down_on() {
+                                            let rect = fav_response.rect;
+                                            ui.painter().rect_filled(rect, 0.0, fav_color);
+                                            ui.painter().text(
+                                                rect.center(),
+                                                egui::Align2::CENTER_CENTER,
+                                                fav_icon,
+                                                egui::FontId::proportional(24.0),
+                                                egui::Color32::BLACK,
+                                            );
+                                        }
+                                        if fav_response.clicked() {
+                                            if is_current_favorited {
+                                                self.favorites.retain(|f| f.path != *file_path);
+                                            } else {
+                                                let name = file_path
+                                                    .file_name()
+                                                    .unwrap_or_default()
+                                                    .to_string_lossy()
+                                                    .to_string();
+                                                self.favorites.insert(0, Favorite {
+                                                    path: file_path.clone(),
+                                                    name,
+                                                    is_dir: false,
+                                                    timestamp: std::time::SystemTime::now(),
+                                                });
+                                            }
+                                            crate::favorites::save(&self.favorites);
+                                        }
+                                    }
                                 });
                             });
 
