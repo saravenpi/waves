@@ -27,6 +27,7 @@ impl WavesApp {
         }
 
         self.song_loading = true;
+        self.song_loading_started = Some(std::time::Instant::now());
 
         let path_clone = path.to_path_buf();
         let sender = self.song_data_sender.clone();
@@ -65,6 +66,15 @@ impl WavesApp {
     ///
     /// Called from the render loop to check for loaded song data.
     pub fn process_loaded_song(&mut self) {
+        if let Some(started) = self.song_loading_started {
+            if started.elapsed() > Duration::from_secs(30) {
+                eprintln!("Song loading timeout - resetting loading state");
+                self.song_loading = false;
+                self.song_loading_started = None;
+                return;
+            }
+        }
+
         let data = match self.song_data_receiver.try_recv() {
             Ok(d) => d,
             Err(_) => return,
@@ -92,11 +102,13 @@ impl WavesApp {
                             Ok(Err(e)) => {
                                 eprintln!("Failed to decode audio file {:?}: {}", data.path, e);
                                 self.song_loading = false;
+                                self.song_loading_started = None;
                                 return;
                             }
                             Err(_) => {
                                 eprintln!("Panic while decoding audio file {:?}", data.path);
                                 self.song_loading = false;
+                                self.song_loading_started = None;
                                 return;
                             }
                         };
@@ -131,6 +143,7 @@ impl WavesApp {
                         });
 
                         self.song_loading = false;
+                        self.song_loading_started = None;
 
                         if !self.waveform_cache.contains_key(&data.path) {
                             let path_clone = data.path.clone();
@@ -174,6 +187,7 @@ impl WavesApp {
             }
             Err(_) => {
                 self.song_loading = false;
+                self.song_loading_started = None;
             },
         }
     }
