@@ -84,7 +84,7 @@ impl WavesApp {
                             }
                         }
                         SidebarView::Settings => {
-                            let max_items = 10;
+                            let max_items = 12;
                             let last = max_items - 1;
                             if self.settings_focused_item != last {
                                 self.settings_focused_item = last;
@@ -130,7 +130,7 @@ impl WavesApp {
                         }
                     }
                     SidebarView::Settings => {
-                        let max_items = 10;
+                        let max_items = 12;
                         if self.settings_focused_item < max_items - 1 {
                             self.settings_focused_item += 1;
                         } else {
@@ -173,7 +173,7 @@ impl WavesApp {
                         }
                     }
                     SidebarView::Settings => {
-                        let max_items = 10;
+                        let max_items = 12;
                         if self.settings_focused_item > 0 {
                             self.settings_focused_item -= 1;
                         } else {

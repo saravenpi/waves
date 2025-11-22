@@ -1200,6 +1200,57 @@ impl eframe::App for WavesApp {
                                         };
                                         frame.show(ui, |ui| {
                                             ui.horizontal(|ui| {
+                                                ui.label(egui::RichText::new("Show Title Bar").size(16.0).color(egui::Color32::WHITE));
+
+                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                    let toggle_width = 50.0;
+                                                    let toggle_height = 25.0;
+                                                    let (rect, response) = ui.allocate_exact_size(
+                                                        egui::vec2(toggle_width, toggle_height),
+                                                        egui::Sense::click()
+                                                    );
+
+                                                    if response.clicked() {
+                                                        self.config.decorations = !self.config.decorations;
+                                                        let _ = self.config.save();
+                                                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Decorations(self.config.decorations));
+                                                    }
+
+                                                    let bg_color = if self.config.decorations {
+                                                        self.primary_color()
+                                                    } else {
+                                                        egui::Color32::from_rgb(60, 60, 60)
+                                                    };
+
+                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+
+                                                    let square_size = 20.0;
+                                                    let square_x = if self.config.decorations {
+                                                        rect.max.x - square_size - 2.5
+                                                    } else {
+                                                        rect.min.x + 2.5
+                                                    };
+                                                    let square_rect = egui::Rect::from_min_size(
+                                                        egui::pos2(square_x, rect.center().y - square_size / 2.0),
+                                                        egui::vec2(square_size, square_size)
+                                                    );
+                                                    ui.painter().rect_filled(square_rect, 0.0, egui::Color32::WHITE);
+                                                });
+                                            });
+                                        });
+                                        ui.add_space(15.0);
+
+                                        let is_focused = self.settings_focused_item == 4;
+                                        let frame = if is_focused {
+                                            egui::Frame::default()
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .inner_margin(egui::Margin::same(8.0))
+                                                .rounding(0.0)
+                                        } else {
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
+                                        };
+                                        frame.show(ui, |ui| {
+                                            ui.horizontal(|ui| {
                                                 ui.label(egui::RichText::new("Visual Animation").size(16.0).color(egui::Color32::WHITE));
 
                                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -1240,7 +1291,7 @@ impl eframe::App for WavesApp {
                                         ui.add_space(10.0);
 
                                         if self.config.animation {
-                                            let is_focused = self.settings_focused_item == 4;
+                                            let is_focused = self.settings_focused_item == 5;
                                             let frame = if is_focused {
                                                 egui::Frame::default()
                                                     .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1287,7 +1338,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 5;
+                                        let is_focused = self.settings_focused_item == 6;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1350,7 +1401,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 6;
+                                        let is_focused = self.settings_focused_item == 7;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1401,7 +1452,7 @@ impl eframe::App for WavesApp {
                                         ui.add_space(10.0);
 
                                         if self.config.ui_sounds_enabled {
-                                            let is_focused = self.settings_focused_item == 7;
+                                            let is_focused = self.settings_focused_item == 8;
                                             let frame = if is_focused {
                                                 egui::Frame::default()
                                                     .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1464,7 +1515,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 8;
+                                        let is_focused = self.settings_focused_item == 9;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1525,7 +1576,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 9;
+                                        let is_focused = self.settings_focused_item == 10;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1558,7 +1609,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 10;
+                                        let is_focused = self.settings_focused_item == 11;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
