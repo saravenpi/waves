@@ -109,6 +109,42 @@ fn main() -> eframe::Result {
                 }
             }
 
+            let system_font_paths: Vec<&str> = vec![
+                #[cfg(target_os = "macos")]
+                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+                #[cfg(target_os = "macos")]
+                "/Library/Fonts/Arial Unicode.ttf",
+                #[cfg(target_os = "macos")]
+                "/System/Library/Fonts/Helvetica.ttc",
+                #[cfg(target_os = "linux")]
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                #[cfg(target_os = "linux")]
+                "/usr/share/fonts/TTF/DejaVuSans.ttf",
+                #[cfg(target_os = "windows")]
+                "C:\\Windows\\Fonts\\arial.ttf",
+            ];
+
+            for font_path in &system_font_paths {
+                if let Ok(font_data) = std::fs::read(font_path) {
+                    fonts.font_data.insert(
+                        "unicode_fallback".to_owned(),
+                        std::sync::Arc::new(egui::FontData::from_owned(font_data)),
+                    );
+
+                    fonts.families
+                        .get_mut(&egui::FontFamily::Monospace)
+                        .unwrap()
+                        .push("unicode_fallback".to_owned());
+
+                    fonts.families
+                        .get_mut(&egui::FontFamily::Proportional)
+                        .unwrap()
+                        .push("unicode_fallback".to_owned());
+
+                    break;
+                }
+            }
+
             cc.egui_ctx.set_fonts(fonts);
 
             let mut style = (*cc.egui_ctx.style()).clone();
