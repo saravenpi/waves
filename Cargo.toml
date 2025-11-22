@@ -1,11 +1,11 @@
 [package]
 name = "waves"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2024"
 
 [dependencies]
 eframe = "0.30"
-rodio = "0.19"
+rodio = { version = "0.19", features = ["symphonia-all"] }
 symphonia = { version = "0.5", features = ["all"] }
 rustfft = "6.2"
 cpal = "0.15"
