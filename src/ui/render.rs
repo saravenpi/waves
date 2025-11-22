@@ -576,8 +576,7 @@ impl eframe::App for WavesApp {
                 ui.add_space(10.0);
 
                 let full_height = ui.available_height();
-                let metadata_height = 200.0;
-                let browser_height = full_height - metadata_height - 20.0;
+                let browser_height = full_height - 20.0;
 
                 let mut clicked_entry: Option<(usize, FileEntry)> = None;
                 let mut back_button_clicked = false;
@@ -1758,7 +1757,9 @@ impl eframe::App for WavesApp {
         let central_opacity = ((self.config.window_opacity / 100.0) * 255.0).min(255.0) as u8;
 
         egui::CentralPanel::default()
-            .frame(egui::Frame::default().fill(egui::Color32::from_black_alpha(central_opacity)))
+            .frame(egui::Frame::default()
+                .fill(egui::Color32::from_black_alpha(central_opacity))
+                .inner_margin(egui::Margin { left: 0.0, right: 15.0, top: 0.0, bottom: 0.0 }))
             .show(ctx, |ui| {
                 let primary_color = self.primary_color();
 
