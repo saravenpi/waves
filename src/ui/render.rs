@@ -1587,9 +1587,34 @@ impl eframe::App for WavesApp {
                                         };
                                         frame.show(ui, |ui| {
                                             ui.label(egui::RichText::new("Default Folder").size(16.0).color(egui::Color32::WHITE));
-                                            ui.add_space(5.0);
+                                            ui.add_space(3.0);
+                                            ui.label(egui::RichText::new("The folder that opens when launching WAVES").size(12.0).color(egui::Color32::from_rgb(140, 140, 140)));
+                                            ui.add_space(10.0);
+
+                                            let has_custom_folder = !self.default_folder_input.is_empty();
+
+                                            egui::Frame::default()
+                                                .fill(egui::Color32::from_rgb(30, 30, 30))
+                                                .inner_margin(egui::Margin::same(10.0))
+                                                .rounding(4.0)
+                                                .show(ui, |ui| {
+                                                    ui.horizontal(|ui| {
+                                                        ui.label(egui::RichText::new("📁").size(16.0));
+                                                        ui.add_space(8.0);
+                                                        if has_custom_folder {
+                                                            ui.label(egui::RichText::new(&self.default_folder_input).size(14.0).color(egui::Color32::WHITE));
+                                                        } else {
+                                                            let default_path = dirs::audio_dir()
+                                                                .map(|p| p.to_string_lossy().to_string())
+                                                                .unwrap_or_else(|| "~/Music".to_string());
+                                                            ui.label(egui::RichText::new(format!("{} (system default)", default_path)).size(14.0).color(egui::Color32::from_rgb(140, 140, 140)));
+                                                        }
+                                                    });
+                                                });
+
+                                            ui.add_space(10.0);
                                             ui.horizontal(|ui| {
-                                                if ui.button("Browse...").clicked() {
+                                                if ui.button("Choose Folder").clicked() {
                                                     if let Some(path) = rfd::FileDialog::new().pick_folder() {
                                                         let path_str = path.to_string_lossy().to_string();
                                                         #[cfg(not(target_os = "windows"))]
@@ -1610,19 +1635,14 @@ impl eframe::App for WavesApp {
                                                         let _ = self.config.save();
                                                     }
                                                 }
-                                                if ui.button("Clear").clicked() {
-                                                    self.default_folder_input.clear();
-                                                    self.config.default_folder = None;
-                                                    let _ = self.config.save();
+                                                if has_custom_folder {
+                                                    if ui.button("Reset to Default").clicked() {
+                                                        self.default_folder_input.clear();
+                                                        self.config.default_folder = None;
+                                                        let _ = self.config.save();
+                                                    }
                                                 }
                                             });
-                                            ui.add_space(5.0);
-                                            let display_path = if self.default_folder_input.is_empty() {
-                                                "No folder selected (using system default)".to_string()
-                                            } else {
-                                                self.default_folder_input.clone()
-                                            };
-                                            ui.label(egui::RichText::new(display_path).size(12.0).color(egui::Color32::from_rgb(140, 140, 140)));
                                         });
 
                                         ui.separator();
