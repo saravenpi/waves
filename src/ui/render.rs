@@ -3147,30 +3147,38 @@ impl eframe::App for WavesApp {
                 });
         }
 
+        self.process_loaded_song();
+
         if self.song_loading {
-            if self.pending_song_path.is_some() {
-                self.loading_frame_count += 1;
-                if self.loading_frame_count >= 2 {
-                    self.process_pending_song();
-                    self.loading_frame_count = 0;
-                }
-            }
-
-            egui::CentralPanel::default()
-                .frame(egui::Frame::none().fill(egui::Color32::from_black_alpha(200)))
+            let screen_rect = ctx.screen_rect();
+            egui::Area::new(egui::Id::new("loading_overlay"))
+                .fixed_pos(screen_rect.min)
                 .show(ctx, |ui| {
-                    ui.vertical_centered(|ui| {
-                        let available_height = ui.available_height();
-                        ui.add_space(available_height * 0.4);
+                    ui.allocate_ui(screen_rect.size(), |ui| {
+                        ui.painter().rect_filled(
+                            screen_rect,
+                            0.0,
+                            egui::Color32::from_black_alpha(180)
+                        );
 
-                        crate::ui::spinner::square_spinner(ui, 50.0, self.primary_color());
+                        ui.with_layout(
+                            egui::Layout::centered_and_justified(egui::Direction::TopDown),
+                            |ui| {
+                                ui.vertical_centered(|ui| {
+                                    let center_y = screen_rect.height() * 0.45;
+                                    ui.add_space(center_y);
 
-                        ui.add_space(15.0);
+                                    crate::ui::spinner::square_spinner(ui, 50.0, self.primary_color());
 
-                        ui.label(
-                            egui::RichText::new("Loading song...")
-                                .size(16.0)
-                                .color(egui::Color32::from_gray(200))
+                                    ui.add_space(15.0);
+
+                                    ui.label(
+                                        egui::RichText::new("Loading...")
+                                            .size(16.0)
+                                            .color(egui::Color32::from_gray(200))
+                                    );
+                                });
+                            }
                         );
                     });
                 });

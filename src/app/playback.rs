@@ -1,22 +1,22 @@
 use crate::audio::{PlayerState, SpectrumCapture, create_placeholder_waveform, extract_waveform};
 use crate::album_cover::extract_album_cover;
 use crate::metadata::extract_metadata;
+use crate::app::state::SongLoadData;
 use crate::WavesApp;
 use eframe::egui;
 use rodio::{Decoder, OutputStream, Sink, Source};
 use rustfft::num_complex::Complex;
 use std::collections::VecDeque;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 impl WavesApp {
-    /// Queues an audio file to be played.
+    /// Queues an audio file to be played in the background.
     ///
-    /// Sets up the loading state and stores the path for deferred loading.
-    /// The actual loading happens in the next frame to allow the UI to show a spinner.
+    /// Spawns a background thread to load file data and metadata while the UI shows a spinner.
     /// # Arguments
     /// * `path` - Path to the audio file to play
     /// * `_ctx` - egui context (currently unused but kept for future use)
@@ -27,123 +27,140 @@ impl WavesApp {
         }
 
         self.song_loading = true;
-        self.pending_song_path = Some(path.to_path_buf());
+
+        let path_clone = path.to_path_buf();
+        let sender = self.song_data_sender.clone();
+        let cached_waveform = self.waveform_cache.get(path).cloned();
+
+        std::thread::spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let file_bytes = match std::fs::read(&path_clone) {
+                    Ok(bytes) => bytes,
+                    Err(e) => {
+                        eprintln!("Failed to read audio file {:?}: {}", path_clone, e);
+                        return None;
+                    }
+                };
+
+                let (title, artist, _album, _date, _track, duration) = extract_metadata(&path_clone);
+                let waveform = cached_waveform.unwrap_or_else(create_placeholder_waveform);
+
+                Some(SongLoadData {
+                    path: path_clone,
+                    file_bytes,
+                    title,
+                    artist,
+                    duration,
+                    waveform,
+                })
+            }));
+
+            if let Ok(Some(data)) = result {
+                let _ = sender.send(data);
+            }
+        });
     }
 
-    /// Actually loads and plays the pending audio file.
+    /// Processes loaded song data and starts playback.
     ///
-    /// Called from the render loop after the UI has had a chance to show the loading spinner.
-    pub fn process_pending_song(&mut self) {
-        let path = match self.pending_song_path.take() {
-            Some(p) => p,
-            None => return,
+    /// Called from the render loop to check for loaded song data.
+    pub fn process_loaded_song(&mut self) {
+        let data = match self.song_data_receiver.try_recv() {
+            Ok(d) => d,
+            Err(_) => return,
         };
 
-        let waveform = self.waveform_cache
-            .get(&path)
-            .cloned()
-            .unwrap_or_else(create_placeholder_waveform);
-
-        let (title, artist, _album, _date, _track, duration) = extract_metadata(&path);
-
-        match File::open(&path) {
-            Ok(file) => {
-                match OutputStream::try_default() {
-                    Ok((_stream, stream_handle)) => {
-                        match Sink::try_new(&stream_handle) {
-                            Ok(sink) => {
-                                let buf_reader = BufReader::new(file);
-                                let decoder_result = std::panic::catch_unwind(
-                                    std::panic::AssertUnwindSafe(|| Decoder::new(buf_reader))
-                                );
-                                let source = match decoder_result {
-                                    Ok(Ok(s)) => s,
-                                    Ok(Err(e)) => {
-                                        eprintln!("Failed to decode audio file {:?}: {}", path, e);
-                                        self.song_loading = false;
-                                        return;
-                                    }
-                                    Err(_) => {
-                                        eprintln!("Panic while decoding audio file {:?}", path);
-                                        self.song_loading = false;
-                                        return;
-                                    }
-                                };
-
-                                let sample_rate = source.sample_rate();
-                                let channels = source.channels();
-                                let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
-
-                                let captured_source = SpectrumCapture::new(
-                                    source.convert_samples::<f32>(),
-                                    audio_buffer.clone()
-                                );
-
-                                sink.append(captured_source);
-                                sink.set_volume(self.volume);
-
-                                let mut player = self.player.lock().unwrap();
-                                *player = Some(PlayerState {
-                                    _stream,
-                                    sink,
-                                    current_file: path.to_path_buf(),
-                                    waveform,
-                                    audio_buffer,
-                                    sample_rate,
-                                    channels,
-                                    duration,
-                                    start_time: Instant::now(),
-                                    pause_offset: Duration::from_secs(0),
-                                    title,
-                                    artist,
-                                    album_cover: None,
-                                });
-
+        match OutputStream::try_default() {
+            Ok((_stream, stream_handle)) => {
+                match Sink::try_new(&stream_handle) {
+                    Ok(sink) => {
+                        let cursor = Cursor::new(data.file_bytes);
+                        let decoder_result = std::panic::catch_unwind(
+                            std::panic::AssertUnwindSafe(|| Decoder::new(cursor))
+                        );
+                        let source = match decoder_result {
+                            Ok(Ok(s)) => s,
+                            Ok(Err(e)) => {
+                                eprintln!("Failed to decode audio file {:?}: {}", data.path, e);
                                 self.song_loading = false;
-
-                                if !self.waveform_cache.contains_key(&path) {
-                                    let path_clone = path.to_path_buf();
-                                    let sender = self.waveform_sender.clone();
-                                    std::thread::spawn(move || {
-                                        let result = std::panic::catch_unwind(|| {
-                                            extract_waveform(&path_clone)
-                                        });
-                                        if let Ok(waveform) = result {
-                                            let _ = sender.send((path_clone, waveform));
-                                        } else {
-                                            eprintln!("Panic while extracting waveform for {:?}", path_clone);
-                                        }
-                                    });
-                                }
-
-                                let path_clone = path.to_path_buf();
-                                let sender = self.album_cover_sender.clone();
-                                std::thread::spawn(move || {
-                                    let result = std::panic::catch_unwind(|| {
-                                        extract_album_cover(&path_clone)
-                                    });
-
-                                    if let Ok(Some(cover_data)) = result {
-                                        if let Ok(img) = image::load_from_memory(&cover_data) {
-                                            let size = [img.width() as usize, img.height() as usize];
-                                            let rgba = img.to_rgba8();
-                                            let pixels = rgba.as_flat_samples();
-                                            if let Ok(color_image) = std::panic::catch_unwind(|| {
-                                                egui::ColorImage::from_rgba_unmultiplied(
-                                                    size,
-                                                    pixels.as_slice()
-                                                )
-                                            }) {
-                                                let _ = sender.send((path_clone, color_image));
-                                            }
-                                        }
-                                    }
-                                });
+                                return;
                             }
                             Err(_) => {
+                                eprintln!("Panic while decoding audio file {:?}", data.path);
                                 self.song_loading = false;
-                            },
+                                return;
+                            }
+                        };
+
+                        let sample_rate = source.sample_rate();
+                        let channels = source.channels();
+                        let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+
+                        let captured_source = SpectrumCapture::new(
+                            source.convert_samples::<f32>(),
+                            audio_buffer.clone()
+                        );
+
+                        sink.append(captured_source);
+                        sink.set_volume(self.volume);
+
+                        let mut player = self.player.lock().unwrap();
+                        *player = Some(PlayerState {
+                            _stream,
+                            sink,
+                            current_file: data.path.clone(),
+                            waveform: data.waveform,
+                            audio_buffer,
+                            sample_rate,
+                            channels,
+                            duration: data.duration,
+                            start_time: Instant::now(),
+                            pause_offset: Duration::from_secs(0),
+                            title: data.title,
+                            artist: data.artist,
+                            album_cover: None,
+                        });
+
+                        self.song_loading = false;
+
+                        if !self.waveform_cache.contains_key(&data.path) {
+                            let path_clone = data.path.clone();
+                            let sender = self.waveform_sender.clone();
+                            std::thread::spawn(move || {
+                                let result = std::panic::catch_unwind(|| {
+                                    extract_waveform(&path_clone)
+                                });
+                                if let Ok(waveform) = result {
+                                    let _ = sender.send((path_clone, waveform));
+                                } else {
+                                    eprintln!("Panic while extracting waveform for {:?}", path_clone);
+                                }
+                            });
                         }
+
+                        let path_clone = data.path.clone();
+                        let sender = self.album_cover_sender.clone();
+                        std::thread::spawn(move || {
+                            let result = std::panic::catch_unwind(|| {
+                                extract_album_cover(&path_clone)
+                            });
+
+                            if let Ok(Some(cover_data)) = result {
+                                if let Ok(img) = image::load_from_memory(&cover_data) {
+                                    let size = [img.width() as usize, img.height() as usize];
+                                    let rgba = img.to_rgba8();
+                                    let pixels = rgba.as_flat_samples();
+                                    if let Ok(color_image) = std::panic::catch_unwind(|| {
+                                        egui::ColorImage::from_rgba_unmultiplied(
+                                            size,
+                                            pixels.as_slice()
+                                        )
+                                    }) {
+                                        let _ = sender.send((path_clone, color_image));
+                                    }
+                                }
+                            }
+                        });
                     }
                     Err(_) => {
                         self.song_loading = false;

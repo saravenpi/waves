@@ -72,8 +72,8 @@ pub struct WavesApp {
     pub help_modal_open: bool,
     pub last_g_press: Option<std::time::Instant>,
     pub song_loading: bool,
-    pub pending_song_path: Option<PathBuf>,
-    pub loading_frame_count: u8,
+    pub song_data_receiver: Receiver<SongLoadData>,
+    pub song_data_sender: Sender<SongLoadData>,
     pub update_checker: UpdateChecker,
     pub current_update_status: Option<UpdateStatus>,
     pub show_update_dialog: bool,
@@ -85,6 +85,15 @@ pub enum CacheResult {
     AudioFiles(Vec<PathBuf>),
     ArtistGroups(Vec<(String, Vec<PathBuf>)>),
     AlbumGroups(Vec<(String, Vec<PathBuf>)>),
+}
+
+pub struct SongLoadData {
+    pub path: PathBuf,
+    pub file_bytes: Vec<u8>,
+    pub title: String,
+    pub artist: Option<String>,
+    pub duration: std::time::Duration,
+    pub waveform: Vec<f32>,
 }
 
 impl WavesApp {
@@ -160,6 +169,7 @@ impl WavesApp {
 
         let (waveform_sender, waveform_receiver) = channel();
         let (album_cover_sender, album_cover_receiver) = channel();
+        let (song_data_tx, song_data_rx) = channel();
 
         let default_folder_input = config.default_folder.clone().unwrap_or_else(|| String::from("~/Music"));
 
@@ -227,8 +237,8 @@ impl WavesApp {
             help_modal_open: false,
             last_g_press: None,
             song_loading: false,
-            pending_song_path: None,
-            loading_frame_count: 0,
+            song_data_receiver: song_data_rx,
+            song_data_sender: song_data_tx,
             update_checker: UpdateChecker::new(),
             current_update_status: None,
             show_update_dialog: false,
