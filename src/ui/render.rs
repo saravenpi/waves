@@ -3148,6 +3148,14 @@ impl eframe::App for WavesApp {
         }
 
         if self.song_loading {
+            if self.pending_song_path.is_some() {
+                self.loading_frame_count += 1;
+                if self.loading_frame_count >= 2 {
+                    self.process_pending_song();
+                    self.loading_frame_count = 0;
+                }
+            }
+
             egui::CentralPanel::default()
                 .frame(egui::Frame::none().fill(egui::Color32::from_black_alpha(200)))
                 .show(ctx, |ui| {

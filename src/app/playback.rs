@@ -13,10 +13,10 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 impl WavesApp {
-    /// Plays an audio file at the specified path.
+    /// Queues an audio file to be played.
     ///
-    /// Initializes audio decoder, sets up spectrum capture, and loads metadata.
-    /// Spawns background threads to extract waveform and album cover asynchronously.
+    /// Sets up the loading state and stores the path for deferred loading.
+    /// The actual loading happens in the next frame to allow the UI to show a spinner.
     /// # Arguments
     /// * `path` - Path to the audio file to play
     /// * `_ctx` - egui context (currently unused but kept for future use)
@@ -27,15 +27,26 @@ impl WavesApp {
         }
 
         self.song_loading = true;
+        self.pending_song_path = Some(path.to_path_buf());
+    }
+
+    /// Actually loads and plays the pending audio file.
+    ///
+    /// Called from the render loop after the UI has had a chance to show the loading spinner.
+    pub fn process_pending_song(&mut self) {
+        let path = match self.pending_song_path.take() {
+            Some(p) => p,
+            None => return,
+        };
 
         let waveform = self.waveform_cache
-            .get(path)
+            .get(&path)
             .cloned()
             .unwrap_or_else(create_placeholder_waveform);
 
-        let (title, artist, _album, _date, _track, duration) = extract_metadata(path);
+        let (title, artist, _album, _date, _track, duration) = extract_metadata(&path);
 
-        match File::open(path) {
+        match File::open(&path) {
             Ok(file) => {
                 match OutputStream::try_default() {
                     Ok((_stream, stream_handle)) => {
@@ -90,7 +101,7 @@ impl WavesApp {
 
                                 self.song_loading = false;
 
-                                if !self.waveform_cache.contains_key(path) {
+                                if !self.waveform_cache.contains_key(&path) {
                                     let path_clone = path.to_path_buf();
                                     let sender = self.waveform_sender.clone();
                                     std::thread::spawn(move || {
