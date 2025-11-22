@@ -1589,21 +1589,40 @@ impl eframe::App for WavesApp {
                                             ui.label(egui::RichText::new("Default Folder").size(16.0).color(egui::Color32::WHITE));
                                             ui.add_space(5.0);
                                             ui.horizontal(|ui| {
-                                                let text_edit = egui::TextEdit::singleline(&mut self.default_folder_input)
-                                                    .desired_width(300.0)
-                                                    .hint_text("~/Music");
-                                                ui.add(text_edit);
-                                                if ui.button("Save").clicked() {
-                                                    let trimmed = self.default_folder_input.trim();
-                                                    if !trimmed.is_empty() {
-                                                        self.config.default_folder = Some(trimmed.to_string());
-                                                    } else {
-                                                        self.config.default_folder = None;
+                                                if ui.button("Browse...").clicked() {
+                                                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                                                        let path_str = path.to_string_lossy().to_string();
+                                                        #[cfg(not(target_os = "windows"))]
+                                                        let path_str = {
+                                                            if let Some(home) = dirs::home_dir() {
+                                                                let home_str = home.to_string_lossy();
+                                                                if path_str.starts_with(&*home_str) {
+                                                                    path_str.replacen(&*home_str, "~", 1)
+                                                                } else {
+                                                                    path_str
+                                                                }
+                                                            } else {
+                                                                path_str
+                                                            }
+                                                        };
+                                                        self.default_folder_input = path_str.clone();
+                                                        self.config.default_folder = Some(path_str);
+                                                        let _ = self.config.save();
                                                     }
+                                                }
+                                                if ui.button("Clear").clicked() {
+                                                    self.default_folder_input.clear();
+                                                    self.config.default_folder = None;
                                                     let _ = self.config.save();
                                                 }
                                             });
-                                            ui.label(egui::RichText::new("Use ~ for home directory (e.g., ~/Music)").size(12.0).color(egui::Color32::from_rgb(140, 140, 140)));
+                                            ui.add_space(5.0);
+                                            let display_path = if self.default_folder_input.is_empty() {
+                                                "No folder selected (using system default)".to_string()
+                                            } else {
+                                                self.default_folder_input.clone()
+                                            };
+                                            ui.label(egui::RichText::new(display_path).size(12.0).color(egui::Color32::from_rgb(140, 140, 140)));
                                         });
 
                                         ui.separator();
