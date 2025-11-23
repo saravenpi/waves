@@ -9,6 +9,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+
 jobs:
   build-macos:
     name: Build macOS
@@ -222,6 +225,8 @@ jobs:
           mkdir -p linux-update
           cp ../target/release/waves linux-update/
           tar -czf "waves-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" -C linux-update waves
+          # Also keep the versionless one for backward compatibility
+          cp "waves-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" waves-x86_64-unknown-linux-gnu.tar.gz
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -230,6 +235,7 @@ jobs:
           path: |
             installers/waves-linux-x86_64.tar.gz
             installers/waves-*-x86_64-unknown-linux-gnu.tar.gz
+            installers/waves-x86_64-unknown-linux-gnu.tar.gz
 
   build-windows:
     name: Build Windows
@@ -295,6 +301,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path installers/windows-update
           Copy-Item target/release/waves.exe installers/windows-update/
           Compress-Archive -Path installers/windows-update/waves.exe -DestinationPath "installers/waves-$env:VERSION-x86_64-pc-windows-msvc.zip" -Force
+          # Also keep the versionless one for backward compatibility
+          Copy-Item "installers/waves-$env:VERSION-x86_64-pc-windows-msvc.zip" -Destination "installers/waves-x86_64-pc-windows-msvc.zip"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -303,6 +311,7 @@ jobs:
           path: |
             installers/waves-windows-x86_64.zip
             installers/waves-*-x86_64-pc-windows-msvc.zip
+            installers/waves-x86_64-pc-windows-msvc.zip
 
   create-release:
     name: Create Release
@@ -323,8 +332,10 @@ jobs:
             artifacts/waves-macos/waves-*-macos.tar.gz
             artifacts/waves-linux/waves-linux-x86_64.tar.gz
             artifacts/waves-linux/waves-*-x86_64-unknown-linux-gnu.tar.gz
+            artifacts/waves-linux/waves-x86_64-unknown-linux-gnu.tar.gz
             artifacts/waves-windows/waves-windows-x86_64.zip
             artifacts/waves-windows/waves-*-x86_64-pc-windows-msvc.zip
+            artifacts/waves-windows/waves-x86_64-pc-windows-msvc.zip
           draft: false
           prerelease: false
         env:
