@@ -20,11 +20,12 @@ impl eframe::App for WavesApp {
         if !self.window_style_applied {
             ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
 
-            std::thread::spawn(|| {
+            let opacity = self.config.window_opacity;
+            std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(100));
 
                 use cocoa::appkit::{NSApp, NSWindow, NSWindowStyleMask};
-                use cocoa::base::{id, YES};
+                use cocoa::base::{id, nil, YES, NO};
                 use objc::{msg_send, sel, sel_impl};
 
                 unsafe {
@@ -39,10 +40,15 @@ impl eframe::App for WavesApp {
                         let _: () = msg_send![window, setTitlebarAppearsTransparent: YES];
                         let _: () = msg_send![window, setTitleVisibility: 1];
 
+                        let _: () = msg_send![window, setOpaque: NO];
+
+                        let alpha: f64 = (opacity / 100.0) as f64;
+                        let _: () = msg_send![window, setAlphaValue: alpha];
+
                         let _: () = msg_send![window, invalidateShadow];
                         let _: () = msg_send![window, display];
 
-                        eprintln!("WAVES: Applied rounded corners styling to window");
+                        eprintln!("WAVES: Applied rounded corners and opacity {} to window", alpha);
                     }
                 }
             });
