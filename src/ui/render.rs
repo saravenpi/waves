@@ -16,6 +16,44 @@ use crate::file_operations::SearchResult;
 
 impl eframe::App for WavesApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        #[cfg(target_os = "macos")]
+        if !self.window_style_applied {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+
+            std::thread::spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+
+                use cocoa::appkit::{NSApp, NSWindow, NSWindowStyleMask};
+                use cocoa::base::{id, nil, YES, NO};
+                use objc::{msg_send, sel, sel_impl};
+
+                unsafe {
+                    let app: id = NSApp();
+                    let window: id = msg_send![app, mainWindow];
+
+                    if !window.is_null() {
+                        let current_style: NSWindowStyleMask = msg_send![window, styleMask];
+                        let new_style = current_style | NSWindowStyleMask::NSFullSizeContentViewWindowMask;
+                        let _: () = msg_send![window, setStyleMask: new_style];
+
+                        let _: () = msg_send![window, setTitlebarAppearsTransparent: YES];
+                        let _: () = msg_send![window, setTitleVisibility: 1];
+
+                        let _: () = msg_send![window, setOpaque: NO];
+                        let _: () = msg_send![window, setHasShadow: YES];
+                        let _: () = msg_send![window, setBackgroundColor: cocoa::appkit::NSColor::clearColor(nil)];
+
+                        let _: () = msg_send![window, invalidateShadow];
+                        let _: () = msg_send![window, display];
+
+                        eprintln!("WAVES: Applied rounded corners to window");
+                    }
+                }
+            });
+
+            self.window_style_applied = true;
+        }
+
         if self.startup_animation {
             let min_time_elapsed = self.startup_time.elapsed().as_secs_f32() >= 1.2;
 

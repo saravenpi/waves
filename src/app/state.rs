@@ -81,6 +81,8 @@ pub struct WavesApp {
     pub update_available_version: Option<String>,
     pub update_in_progress: bool,
     pub scroll_to_selection: bool,
+    #[cfg(target_os = "macos")]
+    pub window_style_applied: bool,
 }
 
 pub enum CacheResult {
@@ -248,6 +250,8 @@ impl WavesApp {
             update_available_version: None,
             update_in_progress: false,
             scroll_to_selection: false,
+            #[cfg(target_os = "macos")]
+            window_style_applied: false,
         };
 
         app.update_columns();
