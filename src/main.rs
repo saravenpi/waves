@@ -56,8 +56,8 @@ fn main() -> eframe::Result {
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1200.0, 700.0])
         .with_title("Waves")
-        .with_decorations(config.decorations)
-        .with_transparent(true);
+        .with_decorations(true)
+        .with_transparent(false);
 
     if let Some(icon) = icon {
         viewport = viewport.with_icon(icon);
