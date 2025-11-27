@@ -63,8 +63,13 @@ fn main() -> eframe::Result {
         viewport = viewport.with_icon(icon);
     }
 
-    if config.window_corner_radius > 0.0 {
-        viewport = viewport.with_window_level(egui::viewport::WindowLevel::Normal);
+    #[cfg(target_os = "macos")]
+    {
+        viewport = viewport
+            .with_fullsize_content_view(true)
+            .with_title_shown(config.decorations)
+            .with_titlebar_buttons_shown(config.decorations)
+            .with_titlebar_shown(config.decorations);
     }
 
     let file_open_sender_for_builder = file_open_sender.clone();

@@ -264,11 +264,17 @@ impl WavesApp {
                                 changed = true;
                             }
                             3 => {
+                                self.config.decorations = !self.config.decorations;
+                                let _ = self.config.save();
+                                ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(self.config.decorations));
+                                changed = true;
+                            }
+                            4 => {
                                 self.config.animation = !self.config.animation;
                                 let _ = self.config.save();
                                 changed = true;
                             }
-                            4 => {
+                            5 => {
                                 if self.config.animation {
                                     use crate::config::AnimationType;
                                     self.config.animation_type = match self.config.animation_type {
@@ -281,7 +287,7 @@ impl WavesApp {
                                     changed = true;
                                 }
                             }
-                            5 => {
+                            6 => {
                                 use crate::config::SidebarPosition;
                                 self.config.sidebar_position = match self.config.sidebar_position {
                                     SidebarPosition::Left => SidebarPosition::Right,
@@ -290,12 +296,12 @@ impl WavesApp {
                                 let _ = self.config.save();
                                 changed = true;
                             }
-                            6 => {
+                            7 => {
                                 self.config.ui_sounds_enabled = !self.config.ui_sounds_enabled;
                                 let _ = self.config.save();
                                 changed = true;
                             }
-                            7 => {
+                            8 => {
                                 if self.config.ui_sounds_enabled {
                                     let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume + 0.05).min(1.0);
@@ -305,7 +311,7 @@ impl WavesApp {
                                     }
                                 }
                             }
-                            8 => {
+                            9 => {
                                 self.config.startup_sound_enabled = !self.config.startup_sound_enabled;
                                 let _ = self.config.save();
                                 changed = true;
@@ -380,13 +386,21 @@ impl WavesApp {
                                 }
                             }
                             3 => {
+                                if self.config.decorations {
+                                    self.config.decorations = false;
+                                    let _ = self.config.save();
+                                    ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(self.config.decorations));
+                                    changed = true;
+                                }
+                            }
+                            4 => {
                                 if self.config.animation {
                                     self.config.animation = false;
                                     let _ = self.config.save();
                                     changed = true;
                                 }
                             }
-                            4 => {
+                            5 => {
                                 if self.config.animation {
                                     use crate::config::AnimationType;
                                     self.config.animation_type = match self.config.animation_type {
@@ -399,7 +413,7 @@ impl WavesApp {
                                     changed = true;
                                 }
                             }
-                            5 => {
+                            6 => {
                                 use crate::config::SidebarPosition;
                                 self.config.sidebar_position = match self.config.sidebar_position {
                                     SidebarPosition::Left => SidebarPosition::Right,
@@ -408,7 +422,7 @@ impl WavesApp {
                                 let _ = self.config.save();
                                 changed = true;
                             }
-                            6 => {
+                            7 => {
                                 if self.config.ui_sounds_enabled {
                                     self.config.ui_sounds_enabled = false;
                                     let _ = self.config.save();
@@ -416,13 +430,6 @@ impl WavesApp {
                                 }
                             }
                             8 => {
-                                if self.config.startup_sound_enabled {
-                                    self.config.startup_sound_enabled = false;
-                                    let _ = self.config.save();
-                                    changed = true;
-                                }
-                            }
-                            7 => {
                                 if self.config.ui_sounds_enabled {
                                     let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume - 0.05).max(0.0);
@@ -430,6 +437,13 @@ impl WavesApp {
                                         let _ = self.config.save();
                                         changed = true;
                                     }
+                                }
+                            }
+                            9 => {
+                                if self.config.startup_sound_enabled {
+                                    self.config.startup_sound_enabled = false;
+                                    let _ = self.config.save();
+                                    changed = true;
                                 }
                             }
                             _ => {}
@@ -473,7 +487,7 @@ impl WavesApp {
                                     changed = true;
                                 }
                             }
-                            7 => {
+                            8 => {
                                 if self.config.ui_sounds_enabled {
                                     let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume - 0.05).max(0.0);
@@ -535,7 +549,7 @@ impl WavesApp {
                                     changed = true;
                                 }
                             }
-                            7 => {
+                            8 => {
                                 if self.config.ui_sounds_enabled {
                                     let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume + 0.05).min(1.0);
