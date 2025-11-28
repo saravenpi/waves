@@ -20,12 +20,11 @@ impl eframe::App for WavesApp {
         if !self.window_style_applied {
             ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
 
-            let opacity = self.config.window_opacity;
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(100));
 
-                use cocoa::appkit::{NSApp, NSWindow, NSWindowStyleMask};
-                use cocoa::base::{id, nil, YES, NO};
+                use cocoa::appkit::{NSApp, NSWindowStyleMask};
+                use cocoa::base::{id, YES};
                 use objc::{msg_send, sel, sel_impl};
 
                 unsafe {
@@ -40,15 +39,10 @@ impl eframe::App for WavesApp {
                         let _: () = msg_send![window, setTitlebarAppearsTransparent: YES];
                         let _: () = msg_send![window, setTitleVisibility: 1];
 
-                        let _: () = msg_send![window, setOpaque: NO];
-
-                        let alpha: f64 = (opacity / 100.0) as f64;
-                        let _: () = msg_send![window, setAlphaValue: alpha];
-
                         let _: () = msg_send![window, invalidateShadow];
                         let _: () = msg_send![window, display];
 
-                        eprintln!("WAVES: Applied rounded corners and opacity {} to window", alpha);
+                        eprintln!("WAVES: Applied rounded corners to window");
                     }
                 }
             });
@@ -62,11 +56,8 @@ impl eframe::App for WavesApp {
             if min_time_elapsed {
                 self.startup_animation = false;
             } else {
-                let opacity = (self.config.window_opacity / 100.0 * 255.0) as u8;
-                let bg_color = egui::Color32::from_rgba_unmultiplied(0, 0, 0, opacity);
-
                 egui::CentralPanel::default()
-                    .frame(egui::Frame::none().fill(bg_color))
+                    .frame(egui::Frame::none().fill(egui::Color32::BLACK))
                     .show(ctx, |ui| {
                         ui.vertical_centered(|ui| {
                             let available_height = ui.available_height();
@@ -362,11 +353,8 @@ impl eframe::App for WavesApp {
                 }
             });
 
-            let opacity = (self.config.window_opacity / 100.0 * 255.0) as u8;
-            let bg_color = egui::Color32::from_rgba_unmultiplied(0, 0, 0, opacity);
-
             egui::CentralPanel::default()
-                .frame(egui::Frame::none().fill(bg_color))
+                .frame(egui::Frame::none().fill(egui::Color32::BLACK))
                 .show(ctx, |ui| {
                     let fullscreen_rect = ui.max_rect();
                     self.render_animation(ui, fullscreen_rect);
@@ -500,10 +488,8 @@ impl eframe::App for WavesApp {
         }
 
         if self.config.show_status_bar {
-            let status_opacity = ((self.config.window_opacity / 100.0) * 255.0).min(255.0) as u8;
-
             egui::TopBottomPanel::bottom("status")
-                .frame(egui::Frame::default().fill(egui::Color32::from_black_alpha(status_opacity)))
+                .frame(egui::Frame::default().fill(egui::Color32::BLACK))
                 .show(ctx, |ui| {
                     ui.separator();
                     let volume_percent = (self.volume * 100.0) as i32;
@@ -524,14 +510,12 @@ impl eframe::App for WavesApp {
             SidebarPosition::Right => egui::SidePanel::right("file_browser"),
         };
 
-        let opacity_alpha = (self.config.window_opacity * 2.40).min(240.0) as u8;
-
         let sidebar_panel_configured = if self.sidebar_collapsed {
             sidebar_panel
                 .resizable(false)
                 .exact_width(40.0)
                 .frame(egui::Frame::default()
-                    .fill(egui::Color32::from_black_alpha(opacity_alpha))
+                    .fill(egui::Color32::from_black_alpha(240))
                     .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
                     .inner_margin(egui::Margin::same(5.0)))
         } else {
@@ -540,7 +524,7 @@ impl eframe::App for WavesApp {
                 .default_width(self.config.sidebar_width)
                 .width_range(250.0..=800.0)
                 .frame(egui::Frame::default()
-                    .fill(egui::Color32::from_black_alpha(opacity_alpha))
+                    .fill(egui::Color32::from_black_alpha(240))
                     .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
                     .inner_margin(egui::Margin::same(10.0)))
         };
@@ -1113,70 +1097,10 @@ impl eframe::App for WavesApp {
                                         });
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 1;
-                                        let frame = if is_focused {
-                                            egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
-                                                .inner_margin(egui::Margin::same(8.0))
-                                                .rounding(0.0)
-                                        } else {
-                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
-                                        };
-                                        frame.show(ui, |ui| {
-                                            ui.label(egui::RichText::new("Window Opacity").size(16.0).color(egui::Color32::WHITE));
-                                            ui.add_space(5.0);
-
-                                            let mut opacity = self.config.window_opacity;
-                                            let slider_height = 6.0;
-                                            let slider_width = ui.available_width() - 60.0;
-
-                                            ui.horizontal(|ui| {
-                                                let (rect, response) = ui.allocate_exact_size(
-                                                    egui::vec2(slider_width, slider_height),
-                                                    egui::Sense::click_and_drag()
-                                                );
-
-                                                let painter = ui.painter();
-
-                                                painter.rect_filled(
-                                                    rect,
-                                                    0.0,
-                                                    egui::Color32::from_rgb(40, 40, 40),
-                                                );
-
-                                                let fill_width = slider_width * (opacity / 100.0);
-                                                let fill_rect = egui::Rect::from_min_size(
-                                                    rect.min,
-                                                    egui::vec2(fill_width, slider_height),
-                                                );
-                                                painter.rect_filled(
-                                                    fill_rect,
-                                                    0.0,
-                                                    self.primary_color(),
-                                                );
-
-                                                if response.dragged() || response.clicked() {
-                                                    if let Some(pos) = response.interact_pointer_pos() {
-                                                        let relative_x = (pos.x - rect.min.x).max(0.0).min(slider_width);
-                                                        opacity = ((relative_x / slider_width) * 100.0).clamp(0.0, 100.0);
-                                                    }
-                                                }
-
-                                                ui.label(egui::RichText::new(format!("{:.0}%", opacity)).size(14.0).color(egui::Color32::WHITE));
-                                            });
-
-                                            if opacity != self.config.window_opacity {
-                                                self.config.window_opacity = opacity;
-                                                let _ = self.config.save();
-                                                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Transparent(opacity < 100.0));
-                                            }
-                                        });
-                                        ui.add_space(15.0);
-
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 2;
+                                        let is_focused = self.settings_focused_item == 1;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1226,7 +1150,7 @@ impl eframe::App for WavesApp {
                                         });
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 3;
+                                        let is_focused = self.settings_focused_item == 2;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1277,7 +1201,7 @@ impl eframe::App for WavesApp {
                                         });
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 4;
+                                        let is_focused = self.settings_focused_item == 3;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1328,7 +1252,7 @@ impl eframe::App for WavesApp {
                                         ui.add_space(10.0);
 
                                         if self.config.animation {
-                                            let is_focused = self.settings_focused_item == 5;
+                                            let is_focused = self.settings_focused_item == 4;
                                             let frame = if is_focused {
                                                 egui::Frame::default()
                                                     .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1375,7 +1299,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 6;
+                                        let is_focused = self.settings_focused_item == 5;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1438,7 +1362,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 7;
+                                        let is_focused = self.settings_focused_item == 6;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1489,7 +1413,7 @@ impl eframe::App for WavesApp {
                                         ui.add_space(10.0);
 
                                         if self.config.ui_sounds_enabled {
-                                            let is_focused = self.settings_focused_item == 8;
+                                            let is_focused = self.settings_focused_item == 7;
                                             let frame = if is_focused {
                                                 egui::Frame::default()
                                                     .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1552,7 +1476,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 9;
+                                        let is_focused = self.settings_focused_item == 8;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1613,7 +1537,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 10;
+                                        let is_focused = self.settings_focused_item == 9;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1685,7 +1609,7 @@ impl eframe::App for WavesApp {
                                         ui.separator();
                                         ui.add_space(15.0);
 
-                                        let is_focused = self.settings_focused_item == 11;
+                                        let is_focused = self.settings_focused_item == 10;
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
@@ -1794,11 +1718,9 @@ impl eframe::App for WavesApp {
 
         self.scroll_to_selection = false;
 
-        let central_opacity = ((self.config.window_opacity / 100.0) * 255.0).min(255.0) as u8;
-
         egui::CentralPanel::default()
             .frame(egui::Frame::default()
-                .fill(egui::Color32::from_black_alpha(central_opacity))
+                .fill(egui::Color32::BLACK)
                 .inner_margin(egui::Margin { left: 0.0, right: 30.0, top: 0.0, bottom: 0.0 }))
             .show(ctx, |ui| {
                 let primary_color = self.primary_color();

@@ -252,7 +252,6 @@ Available options:
 - `default_folder` (string): Default folder to open when no argument provided (supports ~ expansion)
 - `show_status_bar` (bool): Show/hide keyboard shortcuts bar at bottom (default: true)
 - `primary_color` (string): Hex color for UI accents (default: "#9664FF")
-- `window_opacity` (float): Window opacity percentage (default: 100.0)
 - `custom_font` (string): Path to custom font file (optional, supports ~ expansion)
 
 Example:
@@ -264,6 +263,7 @@ decorations: false
 window_corner_radius: 12.0
 default_folder: "~/Music/Musa/"
 show_status_bar: false
+primary_color: "#4A90E2"
 custom_font: "~/Library/Fonts/MyFont.ttf"
 ```
 

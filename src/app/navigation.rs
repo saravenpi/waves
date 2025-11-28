@@ -85,7 +85,7 @@ impl WavesApp {
                             }
                         }
                         SidebarView::Settings => {
-                            let max_items = 12;
+                            let max_items = 11;
                             let last = max_items - 1;
                             if self.settings_focused_item != last {
                                 self.settings_focused_item = last;
@@ -132,7 +132,7 @@ impl WavesApp {
                         }
                     }
                     SidebarView::Settings => {
-                        let max_items = 12;
+                        let max_items = 11;
                         if self.settings_focused_item < max_items - 1 {
                             self.settings_focused_item += 1;
                         } else {
@@ -251,30 +251,22 @@ impl WavesApp {
                                 }
                             }
                             1 => {
-                                let old_opacity = self.config.window_opacity;
-                                self.config.window_opacity = (self.config.window_opacity + 5.0).min(100.0);
-                                if (self.config.window_opacity - old_opacity).abs() > 0.01 {
-                                    let _ = self.config.save();
-                                    changed = true;
-                                }
-                            }
-                            2 => {
                                 self.config.show_status_bar = !self.config.show_status_bar;
                                 let _ = self.config.save();
                                 changed = true;
                             }
-                            3 => {
+                            2 => {
                                 self.config.decorations = !self.config.decorations;
                                 let _ = self.config.save();
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(self.config.decorations));
                                 changed = true;
                             }
-                            4 => {
+                            3 => {
                                 self.config.animation = !self.config.animation;
                                 let _ = self.config.save();
                                 changed = true;
                             }
-                            5 => {
+                            4 => {
                                 if self.config.animation {
                                     use crate::config::AnimationType;
                                     self.config.animation_type = match self.config.animation_type {
@@ -287,7 +279,7 @@ impl WavesApp {
                                     changed = true;
                                 }
                             }
-                            6 => {
+                            5 => {
                                 use crate::config::SidebarPosition;
                                 self.config.sidebar_position = match self.config.sidebar_position {
                                     SidebarPosition::Left => SidebarPosition::Right,
@@ -296,12 +288,12 @@ impl WavesApp {
                                 let _ = self.config.save();
                                 changed = true;
                             }
-                            7 => {
+                            6 => {
                                 self.config.ui_sounds_enabled = !self.config.ui_sounds_enabled;
                                 let _ = self.config.save();
                                 changed = true;
                             }
-                            8 => {
+                            7 => {
                                 if self.config.ui_sounds_enabled {
                                     let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume + 0.05).min(1.0);
@@ -311,7 +303,7 @@ impl WavesApp {
                                     }
                                 }
                             }
-                            9 => {
+                            8 => {
                                 self.config.startup_sound_enabled = !self.config.startup_sound_enabled;
                                 let _ = self.config.save();
                                 changed = true;
@@ -371,21 +363,13 @@ impl WavesApp {
                                 }
                             }
                             1 => {
-                                let old_opacity = self.config.window_opacity;
-                                self.config.window_opacity = (self.config.window_opacity - 5.0).max(0.0);
-                                if (old_opacity - self.config.window_opacity).abs() > 0.01 {
-                                    let _ = self.config.save();
-                                    changed = true;
-                                }
-                            }
-                            2 => {
                                 if self.config.show_status_bar {
                                     self.config.show_status_bar = false;
                                     let _ = self.config.save();
                                     changed = true;
                                 }
                             }
-                            3 => {
+                            2 => {
                                 if self.config.decorations {
                                     self.config.decorations = false;
                                     let _ = self.config.save();
@@ -393,14 +377,14 @@ impl WavesApp {
                                     changed = true;
                                 }
                             }
-                            4 => {
+                            3 => {
                                 if self.config.animation {
                                     self.config.animation = false;
                                     let _ = self.config.save();
                                     changed = true;
                                 }
                             }
-                            5 => {
+                            4 => {
                                 if self.config.animation {
                                     use crate::config::AnimationType;
                                     self.config.animation_type = match self.config.animation_type {
@@ -413,7 +397,7 @@ impl WavesApp {
                                     changed = true;
                                 }
                             }
-                            6 => {
+                            5 => {
                                 use crate::config::SidebarPosition;
                                 self.config.sidebar_position = match self.config.sidebar_position {
                                     SidebarPosition::Left => SidebarPosition::Right,
@@ -422,14 +406,14 @@ impl WavesApp {
                                 let _ = self.config.save();
                                 changed = true;
                             }
-                            7 => {
+                            6 => {
                                 if self.config.ui_sounds_enabled {
                                     self.config.ui_sounds_enabled = false;
                                     let _ = self.config.save();
                                     changed = true;
                                 }
                             }
-                            8 => {
+                            7 => {
                                 if self.config.ui_sounds_enabled {
                                     let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume - 0.05).max(0.0);
@@ -439,7 +423,7 @@ impl WavesApp {
                                     }
                                 }
                             }
-                            9 => {
+                            8 => {
                                 if self.config.startup_sound_enabled {
                                     self.config.startup_sound_enabled = false;
                                     let _ = self.config.save();
@@ -479,15 +463,7 @@ impl WavesApp {
                                     changed = true;
                                 }
                             }
-                            1 => {
-                                let old_opacity = self.config.window_opacity;
-                                self.config.window_opacity = (self.config.window_opacity - 5.0).max(0.0);
-                                if (old_opacity - self.config.window_opacity).abs() > 0.01 {
-                                    let _ = self.config.save();
-                                    changed = true;
-                                }
-                            }
-                            8 => {
+                            7 => {
                                 if self.config.ui_sounds_enabled {
                                     let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume - 0.05).max(0.0);
@@ -541,15 +517,7 @@ impl WavesApp {
                                     changed = true;
                                 }
                             }
-                            1 => {
-                                let old_opacity = self.config.window_opacity;
-                                self.config.window_opacity = (self.config.window_opacity + 5.0).min(100.0);
-                                if (self.config.window_opacity - old_opacity).abs() > 0.01 {
-                                    let _ = self.config.save();
-                                    changed = true;
-                                }
-                            }
-                            8 => {
+                            7 => {
                                 if self.config.ui_sounds_enabled {
                                     let old_volume = self.config.ui_sounds_volume;
                                     self.config.ui_sounds_volume = (self.config.ui_sounds_volume + 0.05).min(1.0);

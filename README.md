@@ -115,7 +115,6 @@ window_corner_radius: 12.0
 default_folder: "~/Music/Musa/"
 show_status_bar: false
 primary_color: "#9664FF"
-window_opacity: 100.0
 custom_font: "~/Library/Fonts/MyFont.ttf"
 sidebar_width: 500.0
 ```

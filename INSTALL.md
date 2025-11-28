@@ -283,9 +283,6 @@ show_status_bar: true
 # Primary UI accent color (hex format)
 primary_color: "#9664FF"
 
-# Window opacity percentage (0-100)
-window_opacity: 100.0
-
 # Custom font path (optional, uses ~ expansion)
 custom_font: "~/path/to/your/font.ttf"
 ```

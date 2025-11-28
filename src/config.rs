@@ -70,8 +70,6 @@ pub struct Config {
     pub show_status_bar: bool,
     #[serde(default = "default_primary_color")]
     pub primary_color: String,
-    #[serde(default = "default_window_opacity")]
-    pub window_opacity: f32,
     #[serde(default)]
     pub custom_font: Option<String>,
     #[serde(default = "default_sidebar_width")]
@@ -90,10 +88,6 @@ fn default_true() -> bool {
 
 fn default_primary_color() -> String {
     "#9664FF".to_string()
-}
-
-fn default_window_opacity() -> f32 {
-    100.0
 }
 
 fn default_sidebar_width() -> f32 {
@@ -115,7 +109,6 @@ impl Default for Config {
             default_folder: None,
             show_status_bar: true,
             primary_color: default_primary_color(),
-            window_opacity: default_window_opacity(),
             custom_font: None,
             sidebar_width: default_sidebar_width(),
             ui_sounds_enabled: true,
