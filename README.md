@@ -1,11 +1,11 @@
 # WAVES
 
 <div align="center">
-  <img src="waves_logo.png" alt="WAVES Logo" width="200"/>
+  <img src="assets/waves_logo.png" alt="WAVES Logo" width="200"/>
 
   A cross-platform GUI music player written in Rust with real-time audio visualization
 
-  <img src="waves_demo.png" alt="WAVES Demo" width="800"/>
+  <img src="assets/waves_demo.png" alt="WAVES Demo" width="800"/>
 </div>
 
 ## Features

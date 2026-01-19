@@ -39,7 +39,7 @@ impl Button {
         let (fill_color, text_color, stroke_color) = if self.selected {
             match self.style {
                 ButtonStyle::Primary => (primary_color, egui::Color32::WHITE, primary_color),
-                ButtonStyle::Secondary => (egui::Color32::WHITE, egui::Color32::BLACK, egui::Color32::WHITE),
+                ButtonStyle::Secondary => (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE),
             }
         } else {
             match self.style {
@@ -100,7 +100,7 @@ impl Modal {
             })
             .show(ctx, |ui| {
                 egui::Frame {
-                    fill: egui::Color32::BLACK,
+                    fill: egui::Color32::from_rgb(16, 16, 16),
                     stroke: egui::Stroke::new(1.0, egui::Color32::WHITE),
                     inner_margin: egui::Margin::same(20.0),
                     ..Default::default()

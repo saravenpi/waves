@@ -12,6 +12,15 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use eframe::egui;
 
+#[derive(Clone)]
+pub struct Dot {
+    pub x: f32,
+    pub y: f32,
+    pub vx: f32,
+    pub vy: f32,
+    pub frequency_band: usize,
+}
+
 pub struct WavesApp {
     pub current_dir: PathBuf,
     pub root_dir: PathBuf,
@@ -50,7 +59,6 @@ pub struct WavesApp {
     pub file_open_receiver: Receiver<PathBuf>,
     #[cfg(target_os = "macos")]
     pub menu_action_receiver: Receiver<crate::macos::MenuAction>,
-    pub sidebar_collapsed: bool,
     pub last_folder_check: std::time::Instant,
     pub last_folder_file_count: usize,
     pub settings_focused_item: usize,
@@ -81,8 +89,8 @@ pub struct WavesApp {
     pub update_available_version: Option<String>,
     pub update_in_progress: bool,
     pub scroll_to_selection: bool,
-    #[cfg(target_os = "macos")]
-    pub window_style_applied: bool,
+    pub dots: Vec<Dot>,
+    pub dots_initialized: bool,
 }
 
 pub enum CacheResult {
@@ -111,10 +119,6 @@ impl WavesApp {
         menu_action_receiver: Receiver<crate::macos::MenuAction>,
     ) -> Self {
         let args: Vec<String> = std::env::args().collect();
-        eprintln!("WAVES DEBUG: Received {} arguments:", args.len());
-        for (i, arg) in args.iter().enumerate() {
-            eprintln!("  arg[{}]: {}", i, arg);
-        }
         let config = Config::load();
 
         let get_default_dir = || {
@@ -144,30 +148,21 @@ impl WavesApp {
 
         let (start_dir, file_to_play) = if args.len() > 1 {
             let path = PathBuf::from(&args[1]);
-            eprintln!("WAVES DEBUG: Processing path: {:?}", path);
-            eprintln!("WAVES DEBUG: Path exists: {}", path.exists());
-            eprintln!("WAVES DEBUG: Path is_dir: {}", path.is_dir());
-            eprintln!("WAVES DEBUG: Path is_file: {}", path.is_file());
             if path.exists() {
                 if path.is_dir() {
-                    eprintln!("WAVES DEBUG: Opening directory: {:?}", path);
                     (path, None)
                 } else if path.is_file() {
                     let parent = path.parent()
                         .map(|p| p.to_path_buf())
                         .unwrap_or_else(|| get_default_dir());
-                    eprintln!("WAVES DEBUG: Opening file: {:?}, parent: {:?}", path, parent);
                     (parent, Some(path))
                 } else {
-                    eprintln!("WAVES DEBUG: Path exists but is neither file nor directory");
                     (get_default_dir(), None)
                 }
             } else {
-                eprintln!("WAVES DEBUG: Path does not exist, using default");
                 (get_default_dir(), None)
             }
         } else {
-            eprintln!("WAVES DEBUG: No arguments, using default directory");
             (get_default_dir(), None)
         };
 
@@ -219,7 +214,6 @@ impl WavesApp {
             file_open_receiver,
             #[cfg(target_os = "macos")]
             menu_action_receiver,
-            sidebar_collapsed: false,
             last_folder_check: std::time::Instant::now(),
             last_folder_file_count: 0,
             settings_focused_item: 0,
@@ -250,8 +244,8 @@ impl WavesApp {
             update_available_version: None,
             update_in_progress: false,
             scroll_to_selection: false,
-            #[cfg(target_os = "macos")]
-            window_style_applied: false,
+            dots: Vec::new(),
+            dots_initialized: false,
         };
 
         app.update_columns();

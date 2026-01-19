@@ -102,9 +102,15 @@ impl PlayerState {
         let current_path = self.current_file.clone();
         let audio_buffer = self.audio_buffer.clone();
         let was_paused = self.sink.is_paused();
+        let volume = self.sink.volume();
+
+        audio_buffer.lock().unwrap().clear();
+
+        let new_sink = Sink::connect_new(self._stream.mixer());
 
         self.sink.stop();
-        audio_buffer.lock().unwrap().clear();
+        self.sink = new_sink;
+        self.sink.set_volume(volume);
 
         let file = File::open(&current_path)
             .map_err(|e| format!("Failed to open file: {}", e))?;

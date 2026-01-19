@@ -1,4 +1,5 @@
 #![allow(unexpected_cfgs)]
+#![allow(deprecated)]
 
 use std::sync::Mutex;
 use std::path::PathBuf;

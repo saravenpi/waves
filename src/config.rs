@@ -22,6 +22,7 @@ pub enum AnimationType {
     WaveformPulse,
     CircleSpectrum,
     Agbe,
+    Dots,
 }
 
 impl Default for AnimationType {
@@ -38,6 +39,7 @@ impl AnimationType {
             AnimationType::WaveformPulse,
             AnimationType::CircleSpectrum,
             AnimationType::Agbe,
+            AnimationType::Dots,
         ]
     }
 
@@ -48,6 +50,7 @@ impl AnimationType {
             AnimationType::WaveformPulse => "Waveform Pulse",
             AnimationType::CircleSpectrum => "Circle Spectrum",
             AnimationType::Agbe => "Pulsating Rings",
+            AnimationType::Dots => "Gravity Dots",
         }
     }
 }

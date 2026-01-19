@@ -14,11 +14,13 @@ Cargo.lock
 
 # Build artifacts
 /waves
-*.app
 *.exe
 *.dmg
 *.deb
 *.rpm
+
+# macOS bundle (allow structure, ignore binaries)
+macos-bundle/Waves.app/Contents/MacOS/
 
 # Config and cache
 .waves.yml

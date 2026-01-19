@@ -41,7 +41,7 @@ pub fn show_text_prompt(
         })
         .show(ctx, |ui| {
             egui::Frame {
-                fill: egui::Color32::BLACK,
+                fill: egui::Color32::from_rgb(16, 16, 16),
                 stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
                 inner_margin: egui::Margin::same(12.0),
                 ..Default::default()
@@ -93,7 +93,7 @@ pub fn show_context_menu(
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             egui::Frame {
-                fill: egui::Color32::BLACK,
+                fill: egui::Color32::from_rgb(16, 16, 16),
                 stroke: egui::Stroke::new(1.0, egui::Color32::WHITE),
                 inner_margin: egui::Margin::same(4.0),
                 ..Default::default()
@@ -109,11 +109,11 @@ pub fn show_context_menu(
                 );
 
                 let (bg_color, text_color, stroke) = if response.clicked() {
-                    (egui::Color32::WHITE, egui::Color32::BLACK, egui::Stroke::NONE)
+                    (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                 } else if response.hovered() {
-                    (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
                 } else {
-                    (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::NONE)
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                 };
 
                 ui.painter().rect_filled(rect, 0.0, bg_color);
@@ -139,11 +139,11 @@ pub fn show_context_menu(
                 );
 
                 let (bg_color, text_color, stroke) = if response.clicked() {
-                    (egui::Color32::WHITE, egui::Color32::BLACK, egui::Stroke::NONE)
+                    (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                 } else if response.hovered() {
-                    (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
                 } else {
-                    (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::NONE)
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                 };
 
                 ui.painter().rect_filled(rect, 0.0, bg_color);
@@ -169,11 +169,11 @@ pub fn show_context_menu(
                 );
 
                 let (bg_color, text_color, stroke) = if response.clicked() {
-                    (egui::Color32::WHITE, egui::Color32::BLACK, egui::Stroke::NONE)
+                    (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                 } else if response.hovered() {
-                    (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
                 } else {
-                    (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::NONE)
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                 };
 
                 ui.painter().rect_filled(rect, 0.0, bg_color);
@@ -199,11 +199,11 @@ pub fn show_context_menu(
                 );
 
                 let (bg_color, text_color, stroke) = if response.clicked() {
-                    (egui::Color32::WHITE, egui::Color32::BLACK, egui::Stroke::NONE)
+                    (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                 } else if response.hovered() {
-                    (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
                 } else {
-                    (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::NONE)
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                 };
 
                 ui.painter().rect_filled(rect, 0.0, bg_color);
@@ -230,11 +230,11 @@ pub fn show_context_menu(
                     );
 
                     let (bg_color, text_color, stroke) = if response.clicked() {
-                        (egui::Color32::WHITE, egui::Color32::BLACK, egui::Stroke::NONE)
+                        (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                     } else if response.hovered() {
-                        (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                        (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
                     } else {
-                        (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::NONE)
+                        (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                     };
 
                     ui.painter().rect_filled(rect, 0.0, bg_color);
@@ -260,11 +260,11 @@ pub fn show_context_menu(
                     );
 
                     let (bg_color, text_color, stroke) = if response.clicked() {
-                        (egui::Color32::WHITE, egui::Color32::BLACK, egui::Stroke::NONE)
+                        (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                     } else if response.hovered() {
-                        (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                        (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
                     } else {
-                        (egui::Color32::BLACK, egui::Color32::WHITE, egui::Stroke::NONE)
+                        (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                     };
 
                     ui.painter().rect_filled(rect, 0.0, bg_color);

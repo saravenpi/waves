@@ -14,7 +14,7 @@ New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 Copy-Item "target\release\waves.exe" -Destination "$InstallDir\waves.exe" -Force
 
 # Copy logo
-Copy-Item "waves_logo.png" -Destination "$InstallDir\waves_logo.png" -Force
+Copy-Item "assets\waves_logo.png" -Destination "$InstallDir\waves_logo.png" -Force
 
 # Add to PATH if not already there
 $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")

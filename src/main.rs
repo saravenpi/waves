@@ -41,7 +41,7 @@ fn main() -> eframe::Result {
         macos::setup_menu_bar(menu_action_sender);
     }
 
-    let icon_data = include_bytes!("../waves_logo.png");
+    let icon_data = include_bytes!("../assets/waves_logo.png");
     let icon_image = image::load_from_memory(icon_data).ok();
 
     let icon = icon_image.and_then(|img| {
@@ -57,7 +57,7 @@ fn main() -> eframe::Result {
         .with_inner_size([1200.0, 700.0])
         .with_title("Waves")
         .with_decorations(true)
-        .with_transparent(true);
+        .with_transparent(false);
 
     if let Some(icon) = icon {
         viewport = viewport.with_icon(icon);
@@ -67,9 +67,9 @@ fn main() -> eframe::Result {
     {
         viewport = viewport
             .with_fullsize_content_view(true)
-            .with_title_shown(config.decorations)
-            .with_titlebar_buttons_shown(config.decorations)
-            .with_titlebar_shown(config.decorations);
+            .with_title_shown(false)
+            .with_titlebar_buttons_shown(true)
+            .with_titlebar_shown(false);
     }
 
     let file_open_sender_for_builder = file_open_sender.clone();

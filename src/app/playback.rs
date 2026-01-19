@@ -145,6 +145,8 @@ impl WavesApp {
                         self.song_loading = false;
                         self.song_loading_started = None;
 
+                        self.dots_initialized = false;
+
                         if !self.waveform_cache.contains_key(&data.path) {
                             let path_clone = data.path.clone();
                             let sender = self.waveform_sender.clone();
@@ -610,6 +612,10 @@ impl WavesApp {
             }
         };
 
+        if progress < 0.01 {
+            self.dots_initialized = false;
+        }
+
         if let Ok(mut player) = self.player.lock() {
             if let Some(state) = player.as_mut() {
                 let was_paused = state.sink.is_paused();
@@ -624,14 +630,19 @@ impl WavesApp {
                 } else {
                     let current_path = state.current_file.clone();
                     let audio_buffer = state.audio_buffer.clone();
+                    let volume = state.sink.volume();
                     drop(player);
 
                     match File::open(&current_path) {
                         Ok(file) => {
                             if let Ok(mut player) = self.player.lock() {
                                 if let Some(state) = player.as_mut() {
-                                    state.sink.stop();
                                     audio_buffer.lock().unwrap().clear();
+
+                                    let new_sink = Sink::connect_new(state._stream.mixer());
+                                    state.sink.stop();
+                                    state.sink = new_sink;
+                                    state.sink.set_volume(volume);
 
                                     let buf_reader = BufReader::new(file);
                                     let ext = current_path.extension()

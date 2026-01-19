@@ -64,7 +64,7 @@ jobs:
           chmod +x Waves.app/Contents/MacOS/waves-launcher
 
           # Copy logo
-          cp waves_logo.png Waves.app/Contents/Resources/
+          cp assets/waves_logo.png Waves.app/Contents/Resources/
 
           # Create Info.plist
           cat > Waves.app/Contents/Info.plist << EOF
@@ -130,14 +130,14 @@ jobs:
           mkdir -p installers
           create-dmg \
             --volname "Waves" \
-            --volicon "waves_logo.png" \
+            --volicon "assets/waves_logo.png" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
             --icon "Waves.app" 200 190 \
             --hide-extension "Waves.app" \
             --app-drop-link 600 185 \
-            --background "waves_logo.png" \
+            --background "assets/waves_logo.png" \
             "installers/waves-macos.dmg" \
             "Waves.app"
 
@@ -202,7 +202,7 @@ jobs:
         run: |
           mkdir -p installers/linux-package
           cp target/release/waves installers/linux-package/
-          cp waves_logo.png installers/linux-package/
+          cp assets/waves_logo.png installers/linux-package/
           cp install-linux.sh installers/linux-package/
 
           cat > installers/linux-package/README.txt << 'EOF'
@@ -279,7 +279,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path installers/windows-package
           Copy-Item target/release/waves.exe installers/windows-package/
-          Copy-Item waves_logo.png installers/windows-package/
+          Copy-Item assets/waves_logo.png installers/windows-package/
           Copy-Item install-windows.ps1 installers/windows-package/
 
           @"

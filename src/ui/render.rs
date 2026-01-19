@@ -16,39 +16,6 @@ use crate::file_operations::SearchResult;
 
 impl eframe::App for WavesApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        #[cfg(target_os = "macos")]
-        if !self.window_style_applied {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(100));
-
-                use cocoa::appkit::{NSApp, NSWindowStyleMask};
-                use cocoa::base::{id, YES};
-                use objc::{msg_send, sel, sel_impl};
-
-                unsafe {
-                    let app: id = NSApp();
-                    let window: id = msg_send![app, mainWindow];
-
-                    if !window.is_null() {
-                        let current_style: NSWindowStyleMask = msg_send![window, styleMask];
-                        let new_style = current_style | NSWindowStyleMask::NSFullSizeContentViewWindowMask;
-                        let _: () = msg_send![window, setStyleMask: new_style];
-
-                        let _: () = msg_send![window, setTitlebarAppearsTransparent: YES];
-                        let _: () = msg_send![window, setTitleVisibility: 1];
-
-                        let _: () = msg_send![window, invalidateShadow];
-                        let _: () = msg_send![window, display];
-
-                        eprintln!("WAVES: Applied rounded corners to window");
-                    }
-                }
-            });
-
-            self.window_style_applied = true;
-        }
 
         if self.startup_animation {
             let min_time_elapsed = self.startup_time.elapsed().as_secs_f32() >= 1.2;
@@ -57,7 +24,7 @@ impl eframe::App for WavesApp {
                 self.startup_animation = false;
             } else {
                 egui::CentralPanel::default()
-                    .frame(egui::Frame::none().fill(egui::Color32::BLACK))
+                    .frame(egui::Frame::none().fill(egui::Color32::from_rgb(16, 16, 16)))
                     .show(ctx, |ui| {
                         ui.vertical_centered(|ui| {
                             let available_height = ui.available_height();
@@ -354,7 +321,7 @@ impl eframe::App for WavesApp {
             });
 
             egui::CentralPanel::default()
-                .frame(egui::Frame::none().fill(egui::Color32::BLACK))
+                .frame(egui::Frame::none().fill(egui::Color32::from_rgb(16, 16, 16)))
                 .show(ctx, |ui| {
                     let fullscreen_rect = ui.max_rect();
                     self.render_animation(ui, fullscreen_rect);
@@ -489,7 +456,7 @@ impl eframe::App for WavesApp {
 
         if self.config.show_status_bar {
             egui::TopBottomPanel::bottom("status")
-                .frame(egui::Frame::default().fill(egui::Color32::BLACK))
+                .frame(egui::Frame::default().fill(egui::Color32::from_rgb(16, 16, 16)))
                 .show(ctx, |ui| {
                     ui.separator();
                     let volume_percent = (self.volume * 100.0) as i32;
@@ -510,93 +477,31 @@ impl eframe::App for WavesApp {
             SidebarPosition::Right => egui::SidePanel::right("file_browser"),
         };
 
-        let sidebar_panel_configured = if self.sidebar_collapsed {
-            sidebar_panel
-                .resizable(false)
-                .exact_width(40.0)
-                .frame(egui::Frame::default()
-                    .fill(egui::Color32::from_black_alpha(240))
-                    .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
-                    .inner_margin(egui::Margin::same(5.0)))
-        } else {
-            sidebar_panel
-                .resizable(true)
-                .default_width(self.config.sidebar_width)
-                .width_range(250.0..=800.0)
-                .frame(egui::Frame::default()
-                    .fill(egui::Color32::from_black_alpha(240))
-                    .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
-                    .inner_margin(egui::Margin::same(10.0)))
-        };
+        #[cfg(target_os = "macos")]
+        let sidebar_margin = egui::Margin { left: 10.0, right: 10.0, top: 40.0, bottom: 10.0 };
+
+        #[cfg(not(target_os = "macos"))]
+        let sidebar_margin = egui::Margin::same(10.0);
+
+        #[cfg(target_os = "macos")]
+        let min_width = 100.0;
+
+        #[cfg(not(target_os = "macos"))]
+        let min_width = 250.0;
+
+        let sidebar_panel_configured = sidebar_panel
+            .resizable(true)
+            .default_width(self.config.sidebar_width)
+            .width_range(min_width..=800.0)
+            .frame(egui::Frame::default()
+                .fill(egui::Color32::from_black_alpha(240))
+                .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
+                .inner_margin(sidebar_margin));
 
         let sidebar_response = sidebar_panel_configured
             .show(ctx, |ui| {
-                let is_left_sidebar = matches!(self.config.sidebar_position, SidebarPosition::Left);
-                let expand_arrow = if is_left_sidebar { "▶" } else { "◀" };
-                let collapse_arrow = if is_left_sidebar { "◀" } else { "▶" };
-
-                if self.sidebar_collapsed {
-                    ui.vertical_centered(|ui| {
-                        ui.add_space(10.0);
-
-                        let expand_response = IconButton::new(expand_arrow).size(20.0).show(ui);
-                        expand_response.surrender_focus();
-
-                        if expand_response.hovered() {
-                            ui.painter().rect_stroke(
-                                expand_response.rect,
-                                0.0,
-                                egui::Stroke::new(1.0, egui::Color32::from_rgb(150, 150, 150))
-                            );
-                        }
-
-                        if expand_response.is_pointer_button_down_on() {
-                            ui.painter().rect_filled(
-                                expand_response.rect,
-                                0.0,
-                                egui::Color32::from_rgb(60, 60, 60)
-                            );
-                            ui.painter().text(
-                                expand_response.rect.center(),
-                                egui::Align2::CENTER_CENTER,
-                                expand_arrow,
-                                egui::FontId::proportional(20.0),
-                                egui::Color32::WHITE,
-                            );
-                        }
-
-                        if expand_response.clicked() {
-                            self.sidebar_collapsed = false;
-                        }
-                    });
-                    return;
-                }
-
                 ui.add_space(10.0);
-                ui.allocate_ui_with_layout(
-                    egui::vec2(ui.available_width(), 35.0),
-                    egui::Layout::left_to_right(egui::Align::Center),
-                    |ui| {
-                        ui.heading(egui::RichText::new("Waves").size(32.0).color(egui::Color32::WHITE).strong());
-
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            let collapse_response = IconButton::new(collapse_arrow).size(20.0).show(ui);
-                            collapse_response.surrender_focus();
-
-                            if collapse_response.hovered() {
-                                ui.painter().rect_stroke(
-                                    collapse_response.rect,
-                                    0.0,
-                                    egui::Stroke::new(1.0, egui::Color32::from_rgb(150, 150, 150))
-                                );
-                            }
-
-                            if collapse_response.clicked() {
-                                self.sidebar_collapsed = true;
-                            }
-                        });
-                    }
-                );
+                ui.heading(egui::RichText::new("Waves").size(32.0).color(egui::Color32::WHITE).strong());
                 ui.add_space(10.0);
 
                 let full_height = ui.available_height();
@@ -1705,23 +1610,32 @@ impl eframe::App for WavesApp {
 
             });
 
-        if !self.sidebar_collapsed {
-            // Only update width when user is actively resizing (dragging)
-            if ctx.input(|i| i.pointer.any_down()) {
-                let new_width = sidebar_response.response.rect.width().max(250.0).min(800.0);
-                if (new_width - self.config.sidebar_width).abs() > 1.0 {
-                    self.config.sidebar_width = new_width;
-                    let _ = self.config.save();
-                }
+        #[cfg(target_os = "macos")]
+        let min_sidebar_width = 100.0;
+
+        #[cfg(not(target_os = "macos"))]
+        let min_sidebar_width = 250.0;
+
+        if ctx.input(|i| i.pointer.any_down()) {
+            let new_width = sidebar_response.response.rect.width().max(min_sidebar_width).min(800.0);
+            if (new_width - self.config.sidebar_width).abs() > 1.0 {
+                self.config.sidebar_width = new_width;
+                let _ = self.config.save();
             }
         }
 
         self.scroll_to_selection = false;
 
+        #[cfg(target_os = "macos")]
+        let content_top_margin = 40.0;
+
+        #[cfg(not(target_os = "macos"))]
+        let content_top_margin = 0.0;
+
         egui::CentralPanel::default()
             .frame(egui::Frame::default()
-                .fill(egui::Color32::BLACK)
-                .inner_margin(egui::Margin { left: 0.0, right: 30.0, top: 0.0, bottom: 0.0 }))
+                .fill(egui::Color32::from_rgb(16, 16, 16))
+                .inner_margin(egui::Margin { left: 0.0, right: 30.0, top: content_top_margin, bottom: 0.0 }))
             .show(ctx, |ui| {
                 let primary_color = self.primary_color();
 
@@ -2469,7 +2383,7 @@ impl eframe::App for WavesApp {
                 })
                 .show(ctx, |ui| {
                     egui::Frame {
-                        fill: egui::Color32::BLACK,
+                        fill: egui::Color32::from_rgb(16, 16, 16),
                         stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
                         inner_margin: egui::Margin::same(20.0),
                         ..Default::default()
@@ -2713,7 +2627,7 @@ impl eframe::App for WavesApp {
                 })
                 .show(ctx, |ui| {
                     egui::Frame {
-                        fill: egui::Color32::BLACK,
+                        fill: egui::Color32::from_rgb(16, 16, 16),
                         stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
                         inner_margin: egui::Margin::same(20.0),
                         ..Default::default()
@@ -2839,7 +2753,7 @@ impl eframe::App for WavesApp {
                 })
                 .show(ctx, |ui| {
                     egui::Frame {
-                        fill: egui::Color32::BLACK,
+                        fill: egui::Color32::from_rgb(16, 16, 16),
                         stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
                         inner_margin: egui::Margin::same(12.0),
                         ..Default::default()
@@ -2896,7 +2810,7 @@ impl eframe::App for WavesApp {
                         }
 
                         egui::Frame {
-                            fill: egui::Color32::BLACK,
+                            fill: egui::Color32::from_rgb(16, 16, 16),
                             stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
                             inner_margin: egui::Margin::same(8.0),
                             ..Default::default()

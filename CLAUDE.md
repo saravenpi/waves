@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 WAVES is a cross-platform GUI music player written in Rust using the eframe/egui framework. It runs on macOS, Linux, and Windows. It features a Miller column file browser (similar to macOS Finder), real-time audio visualization with FFT-based spectrum analysis, waveform displays, and file/folder icons for easy navigation.
 
-![WAVES Demo](waves_demo.png)
+![WAVES Demo](assets/waves_demo.png)
 
 ### Platform Support
 - **macOS**: Full support with native app bundle
@@ -34,7 +34,7 @@ WAVES is a cross-platform GUI music player written in Rust using the eframe/egui
 **macOS:**
 - `./install-macos.sh` - Install WAVES as a macOS application in /Applications
   - Creates proper app bundle structure
-  - Converts waves_logo.png to ICNS format for app icon
+  - Pre-built .icns icon included in macos-bundle
   - Registers file associations for audio files (mp3, wav, flac, ogg, m4a)
   - Enables opening files/folders from Finder
   - Makes WAVES available in Spotlight
