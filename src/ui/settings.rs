@@ -28,6 +28,11 @@ pub fn render_settings(app: &mut WavesApp, ui: &mut egui::Ui, list_height: f32) 
             render_visual_animation_toggle(app, ui);
             ui.add_space(10.0);
 
+            if app.config.animation {
+                render_animation_style_selector(app, ui);
+                ui.add_space(10.0);
+            }
+
             ui.separator();
             ui.add_space(10.0);
 
@@ -329,6 +334,48 @@ fn render_sidebar_position_setting(app: &mut WavesApp, ui: &mut egui::Ui) {
             if ui.add(egui::Button::new(egui::RichText::new("Right").color(right_text)).fill(right_bg)).clicked() {
                 app.config.sidebar_position = SidebarPosition::Right;
                 let _ = app.config.save();
+            }
+        });
+    });
+}
+
+fn render_animation_style_selector(app: &mut WavesApp, ui: &mut egui::Ui) {
+    use crate::config::AnimationType;
+
+    let is_focused = app.settings_focused_item == 4;
+    let frame = if is_focused {
+        egui::Frame::default()
+            .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
+            .inner_margin(egui::Margin::same(4.0))
+            .rounding(0.0)
+    } else {
+        egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+    };
+
+    frame.show(ui, |ui| {
+        ui.label(egui::RichText::new("Animation Style").size(14.0).color(egui::Color32::from_rgb(200, 200, 200)));
+        ui.add_space(5.0);
+
+        let primary = app.primary_color();
+
+        let animation_types = vec![
+            (AnimationType::Spectrum, "Spectrum"),
+            (AnimationType::WaveformPulse, "Waveform"),
+            (AnimationType::CircleSpectrum, "Circle"),
+            (AnimationType::Agbe, "Agbe"),
+            (AnimationType::Dots, "Dots"),
+        ];
+
+        ui.horizontal_wrapped(|ui| {
+            for (anim_type, label) in animation_types {
+                let is_selected = app.config.animation_type == anim_type;
+                let bg_color = if is_selected { primary } else { egui::Color32::from_rgb(60, 60, 60) };
+                let text_color = if is_selected { egui::Color32::BLACK } else { egui::Color32::WHITE };
+
+                if ui.add(egui::Button::new(egui::RichText::new(label).color(text_color)).fill(bg_color)).clicked() {
+                    app.config.animation_type = anim_type;
+                    let _ = app.config.save();
+                }
             }
         });
     });
