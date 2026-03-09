@@ -173,37 +173,70 @@ fn poll_menu_action_receiver(app: &mut WavesApp, ctx: &egui::Context) {
 }
 
 fn poll_async_receivers(app: &mut WavesApp, ctx: &egui::Context) {
-    while let Ok((path, waveform)) = app.waveform_receiver.try_recv() {
-        app.waveform_cache.insert(path.clone(), waveform.clone());
+    const MAX_CACHE_SIZE: usize = 50;
 
-        if let Ok(mut player) = app.player.lock() {
-            if let Some(state) = player.as_mut() {
-                if state.current_file == path {
-                    state.waveform = waveform;
-                    ctx.request_repaint();
+    while let Ok((path, waveform)) = app.waveform_receiver.try_recv() {
+        if app.waveform_cache.len() >= MAX_CACHE_SIZE {
+            if let Some(oldest_key) = app.waveform_cache.keys().next().cloned() {
+                app.waveform_cache.remove(&oldest_key);
+            }
+        }
+
+        let should_update_player = {
+            if let Ok(player) = app.player.lock() {
+                player.as_ref().map(|state| state.current_file == path).unwrap_or(false)
+            } else {
+                false
+            }
+        };
+
+        app.waveform_cache.insert(path.clone(), waveform);
+
+        if should_update_player {
+            if let Ok(mut player) = app.player.lock() {
+                if let Some(state) = player.as_mut() {
+                    if let Some(cached) = app.waveform_cache.get(&path) {
+                        state.waveform = cached.clone();
+                        ctx.request_repaint();
+                    }
                 }
             }
         }
     }
 
     while let Ok((path, color_image)) = app.album_cover_receiver.try_recv() {
+        if app.album_cover_cache.len() >= MAX_CACHE_SIZE {
+            if let Some(oldest_key) = app.album_cover_cache.keys().next().cloned() {
+                app.album_cover_cache.remove(&oldest_key);
+            }
+        }
+
         let texture = ctx.load_texture(
             format!("album_cover_{}", path.display()),
             color_image,
             egui::TextureOptions::LINEAR
         );
 
-        app.album_cover_cache.insert(path.clone(), texture.clone());
+        let should_update_player = {
+            if let Ok(player) = app.player.lock() {
+                player.as_ref().map(|state| state.current_file == path).unwrap_or(false)
+            } else {
+                false
+            }
+        };
 
-        if let Ok(mut player) = app.player.lock() {
-            if let Some(state) = player.as_mut() {
-                if state.current_file == path {
-                    state.album_cover = Some(texture);
-                    ctx.request_repaint();
+        app.album_cover_cache.insert(path.clone(), texture);
+
+        if should_update_player {
+            if let Ok(mut player) = app.player.lock() {
+                if let Some(state) = player.as_mut() {
+                    if let Some(cached) = app.album_cover_cache.get(&path) {
+                        state.album_cover = Some(cached.clone());
+                        ctx.request_repaint();
+                    }
                 }
             }
         }
-        ctx.request_repaint();
     }
 
     let mut cache_updates = Vec::new();

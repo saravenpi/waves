@@ -112,19 +112,17 @@ pub fn render_playback_controls(
                 ui.set_width(content_width.max(min_content_width));
 
                 ui.horizontal(|ui| {
-                    ui.vertical_centered(|ui| {
-                        ui.add_space(8.0);
-                        render_like_button(app, ui);
-                    });
+                    ui.add_space(5.0);
+
+                    render_like_button(app, ui);
 
                     ui.add_space(15.0);
 
-                    let buttons_width = 190.0;
+                    let buttons_width = 180.0;
                     let title_width = ui.available_width() - buttons_width - 10.0;
 
                     ui.vertical(|ui| {
                         ui.set_width(title_width.max(200.0));
-                        ui.set_height(50.0);
 
                         ui.label(
                             egui::RichText::new(&title)
@@ -141,11 +139,10 @@ pub fn render_playback_controls(
                         }
                     });
 
+                    ui.add_space(10.0);
+
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.vertical_centered(|ui| {
-                            ui.add_space(10.0);
-                            render_playback_buttons(app, ui, is_paused, ctx);
-                        });
+                        render_playback_buttons(app, ui, is_paused, ctx);
                     });
                 });
 
@@ -418,7 +415,7 @@ fn render_waveform(
     duration: Duration,
     ctx: &egui::Context,
 ) {
-    let waveform_width = ui.available_width().max(200.0);
+    let waveform_width = (ui.available_width() - 10.0).max(200.0);
     let waveform_height = 60.0;
 
     let (rect, response) = ui.allocate_exact_size(
