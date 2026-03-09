@@ -448,10 +448,10 @@ impl eframe::App for WavesApp {
         };
 
         #[cfg(target_os = "macos")]
-        let sidebar_margin = egui::Margin { left: 10.0, right: 10.0, top: 40.0, bottom: 10.0 };
+        let sidebar_margin = egui::Margin { left: 4.0, right: 4.0, top: 40.0, bottom: 4.0 };
 
         #[cfg(not(target_os = "macos"))]
-        let sidebar_margin = egui::Margin::same(10.0);
+        let sidebar_margin = egui::Margin::same(4.0);
 
         #[cfg(target_os = "macos")]
         let min_width = 100.0;
@@ -1444,7 +1444,7 @@ impl eframe::App for WavesApp {
 
                                             egui::Frame::default()
                                                 .fill(egui::Color32::from_rgb(30, 30, 30))
-                                                .inner_margin(egui::Margin::same(10.0))
+                                                .inner_margin(egui::Margin::same(4.0))
                                                 .rounding(4.0)
                                                 .show(ui, |ui| {
                                                     ui.horizontal(|ui| {
