@@ -48,7 +48,7 @@ else
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.4.0</string>
+    <string>0.5.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>CFBundleDocumentTypes</key>
