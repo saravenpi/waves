@@ -462,7 +462,7 @@ fn render_waveform(
 
     for (i, &amplitude) in visible_samples.iter().enumerate() {
         let x = rect.min.x + (i as f32 * bar_width);
-        let adjusted_amplitude = (amplitude * 0.5).min(1.0);
+        let adjusted_amplitude = (amplitude.powf(1.5) * 0.35).min(1.0);
         let height = adjusted_amplitude * max_height;
         let y_bottom = rect.max.y;
         let y_top = y_bottom - height;

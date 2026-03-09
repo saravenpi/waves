@@ -178,7 +178,7 @@ impl WavesApp {
         let mut app = Self {
             current_dir: start_dir.clone(),
             root_dir: start_dir.clone(),
-            columns: vec![],
+            columns: Vec::with_capacity(2),
             player: Arc::new(Mutex::new(None)),
             audio_stream,
             pending_seek: None,
@@ -238,7 +238,7 @@ impl WavesApp {
             song_data_receiver: song_data_rx,
             song_data_sender: song_data_tx,
             scroll_to_selection: false,
-            dots: Vec::new(),
+            dots: Vec::with_capacity(160),
             dots_initialized: false,
             hann_window: (0..4096).map(|i| {
                 0.5 - 0.5 * ((2.0 * std::f32::consts::PI * i as f32) / 4096.0).cos()

@@ -1,3 +1,8 @@
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 mod config;
 mod types;
 mod liked;
@@ -161,7 +166,11 @@ fn main() -> eframe::Result {
             );
             cc.egui_ctx.set_style(style);
 
-            cc.egui_ctx.options_mut(|o| o.warn_on_id_clash = false);
+            cc.egui_ctx.options_mut(|o| {
+                o.warn_on_id_clash = false;
+                o.reduce_texture_memory = true;
+                o.max_passes = std::num::NonZeroUsize::new(1).unwrap();
+            });
 
             #[cfg(target_os = "macos")]
             {

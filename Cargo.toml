@@ -21,6 +21,7 @@ oggvorbismeta = "0.2"
 dirs = "5.0"
 winit = "0.30"
 rand = "0.8"
+mimalloc = { version = "0.1", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.7"
