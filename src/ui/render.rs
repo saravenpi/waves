@@ -448,10 +448,10 @@ impl eframe::App for WavesApp {
         };
 
         #[cfg(target_os = "macos")]
-        let sidebar_margin = egui::Margin { left: 4.0, right: 4.0, top: 40.0, bottom: 4.0 };
+        let sidebar_margin = egui::Margin { left: 10.0, right: 10.0, top: 40.0, bottom: 10.0 };
 
         #[cfg(not(target_os = "macos"))]
-        let sidebar_margin = egui::Margin::same(4.0);
+        let sidebar_margin = egui::Margin::same(10.0);
 
         #[cfg(target_os = "macos")]
         let min_width = 100.0;
@@ -922,10 +922,10 @@ impl eframe::App for WavesApp {
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                .inner_margin(egui::Margin::same(4.0))
+                                                .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
-                                            egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                         };
                                         frame.show(ui, |ui| {
                                             ui.label(egui::RichText::new("Primary Color").size(16.0).color(egui::Color32::WHITE));
@@ -973,10 +973,10 @@ impl eframe::App for WavesApp {
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                .inner_margin(egui::Margin::same(4.0))
+                                                .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
-                                            egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                         };
                                         frame.show(ui, |ui| {
                                             ui.allocate_ui_with_layout(
@@ -1026,10 +1026,10 @@ impl eframe::App for WavesApp {
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                .inner_margin(egui::Margin::same(4.0))
+                                                .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
-                                            egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                         };
                                         frame.show(ui, |ui| {
                                             ui.allocate_ui_with_layout(
@@ -1081,10 +1081,10 @@ impl eframe::App for WavesApp {
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                .inner_margin(egui::Margin::same(4.0))
+                                                .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
-                                            egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                         };
                                         frame.show(ui, |ui| {
                                             ui.allocate_ui_with_layout(
@@ -1136,10 +1136,10 @@ impl eframe::App for WavesApp {
                                             let frame = if is_focused {
                                                 egui::Frame::default()
                                                     .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                    .inner_margin(egui::Margin::same(4.0))
+                                                    .inner_margin(egui::Margin::same(8.0))
                                                     .rounding(0.0)
                                             } else {
-                                                egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                                egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                             };
                                             frame.show(ui, |ui| {
                                                 ui.label(egui::RichText::new("Animation Style").size(14.0).color(egui::Color32::from_rgb(200, 200, 200)));
@@ -1183,10 +1183,10 @@ impl eframe::App for WavesApp {
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                .inner_margin(egui::Margin::same(4.0))
+                                                .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
-                                            egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                         };
                                         frame.show(ui, |ui| {
                                             ui.label(egui::RichText::new("Sidebar Position").size(16.0).color(egui::Color32::WHITE));
@@ -1246,10 +1246,10 @@ impl eframe::App for WavesApp {
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                .inner_margin(egui::Margin::same(4.0))
+                                                .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
-                                            egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                         };
                                         frame.show(ui, |ui| {
                                             ui.allocate_ui_with_layout(
@@ -1301,10 +1301,10 @@ impl eframe::App for WavesApp {
                                             let frame = if is_focused {
                                                 egui::Frame::default()
                                                     .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                    .inner_margin(egui::Margin::same(4.0))
+                                                    .inner_margin(egui::Margin::same(8.0))
                                                     .rounding(0.0)
                                             } else {
-                                                egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                                egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                             };
                                             frame.show(ui, |ui| {
                                                 ui.label(egui::RichText::new("Sound Volume").size(14.0).color(egui::Color32::from_rgb(200, 200, 200)));
@@ -1364,10 +1364,10 @@ impl eframe::App for WavesApp {
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                .inner_margin(egui::Margin::same(4.0))
+                                                .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
-                                            egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                         };
                                         frame.show(ui, |ui| {
                                             ui.allocate_ui_with_layout(
@@ -1429,10 +1429,10 @@ impl eframe::App for WavesApp {
                                         let frame = if is_focused {
                                             egui::Frame::default()
                                                 .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
-                                                .inner_margin(egui::Margin::same(4.0))
+                                                .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
-                                            egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+                                            egui::Frame::default().inner_margin(egui::Margin::same(8.0))
                                         };
                                         frame.show(ui, |ui| {
                                             ui.label(egui::RichText::new("Default Folder").size(16.0).color(egui::Color32::WHITE));
@@ -1444,7 +1444,7 @@ impl eframe::App for WavesApp {
 
                                             egui::Frame::default()
                                                 .fill(egui::Color32::from_rgb(30, 30, 30))
-                                                .inner_margin(egui::Margin::same(4.0))
+                                                .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(4.0)
                                                 .show(ui, |ui| {
                                                     ui.horizontal(|ui| {
