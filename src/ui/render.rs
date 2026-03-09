@@ -728,7 +728,7 @@ impl eframe::App for WavesApp {
                                             ui.painter().rect_filled(
                                                 rect,
                                                 0.0,
-                                                self.primary_color_with_alpha(51),
+                                                self.primary_color_with_alpha(13),
                                             );
                                             ui.painter().rect_stroke(
                                                 rect,
@@ -851,7 +851,7 @@ impl eframe::App for WavesApp {
                                                 ui.painter().rect_filled(
                                                     rect,
                                                     0.0,
-                                                    self.primary_color_with_alpha(51),
+                                                    self.primary_color_with_alpha(13),
                                                 );
                                                 ui.painter().rect_stroke(
                                                     rect,
@@ -947,15 +947,15 @@ impl eframe::App for WavesApp {
 
                                                     let is_selected = self.config.primary_color.to_lowercase() == hex.to_lowercase();
 
+                                                    ui.painter().rect_filled(rect, 0.0, color);
+
                                                     if is_selected {
                                                         ui.painter().rect_stroke(
                                                             rect.expand(3.0),
                                                             0.0,
-                                                            egui::Stroke::new(2.0, egui::Color32::WHITE),
+                                                            egui::Stroke::new(2.0, color),
                                                         );
                                                     }
-
-                                                    ui.painter().rect_filled(rect, 0.0, color);
 
                                                     if response.clicked() {
                                                         self.config.primary_color = hex.to_string();
@@ -997,7 +997,7 @@ impl eframe::App for WavesApp {
 
                                                     let primary = self.primary_color();
                                                     if self.config.show_status_bar {
-                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(13));
                                                         ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
                                                         ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
@@ -1048,7 +1048,7 @@ impl eframe::App for WavesApp {
 
                                                     let primary = self.primary_color();
                                                     if self.config.decorations {
-                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(13));
                                                         ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
                                                         ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
@@ -1098,7 +1098,7 @@ impl eframe::App for WavesApp {
 
                                                     let primary = self.primary_color();
                                                     if self.config.animation {
-                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(13));
                                                         ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
                                                         ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
@@ -1259,7 +1259,7 @@ impl eframe::App for WavesApp {
 
                                                     let primary = self.primary_color();
                                                     if self.config.ui_sounds_enabled {
-                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(13));
                                                         ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
                                                         ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
@@ -1373,7 +1373,7 @@ impl eframe::App for WavesApp {
 
                                                     let primary = self.primary_color();
                                                     if self.config.startup_sound_enabled {
-                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(13));
                                                         ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
                                                         ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
@@ -1679,7 +1679,7 @@ impl eframe::App for WavesApp {
                                         ui.painter().rect_filled(
                                             rect,
                                             0.0,
-                                            self.primary_color_with_alpha(51)
+                                            self.primary_color_with_alpha(13)
                                         );
                                         ui.painter().rect_stroke(
                                             rect,

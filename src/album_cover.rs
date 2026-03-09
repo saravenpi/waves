@@ -27,18 +27,17 @@ pub fn extract_album_cover(path: &Path) -> Option<Vec<u8>> {
             Err(_) => return None,
         };
 
-        if let Some(metadata) = probed.metadata.get() {
-            if let Some(current_metadata) = metadata.current() {
-                if let Some(visual) = current_metadata.visuals().iter().next() {
-                    return Some(visual.data.to_vec());
-                }
-            }
+        if let Some(cover) = probed.metadata.get()
+            .and_then(|m| m.current())
+            .and_then(|c| c.visuals().iter().next())
+            .map(|v| v.data.to_vec()) {
+            return Some(cover);
         }
 
-        if let Some(metadata_rev) = probed.format.metadata().current() {
-            if let Some(visual) = metadata_rev.visuals().iter().next() {
-                return Some(visual.data.to_vec());
-            }
+        if let Some(cover) = probed.format.metadata().current()
+            .and_then(|m| m.visuals().iter().next())
+            .map(|v| v.data.to_vec()) {
+            return Some(cover);
         }
 
         None

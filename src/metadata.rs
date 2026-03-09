@@ -94,30 +94,28 @@ pub fn extract_metadata(path: &Path) -> (String, Option<String>, Option<String>,
         }
     }
 
-    if let Some(metadata) = probed.metadata.get() {
-        if let Some(metadata_rev) = metadata.current() {
-            for tag in metadata_rev.tags() {
-                match tag.std_key {
-                    Some(symphonia::core::meta::StandardTagKey::TrackTitle) if title.is_none() => {
-                        title = Some(tag.value.to_string());
-                    }
-                    Some(symphonia::core::meta::StandardTagKey::Artist) if artist.is_none() => {
-                        artist = Some(tag.value.to_string());
-                    }
-                    Some(symphonia::core::meta::StandardTagKey::Album) if album.is_none() => {
-                        album = Some(tag.value.to_string());
-                    }
-                    Some(symphonia::core::meta::StandardTagKey::Date) if date.is_none() => {
-                        date = Some(tag.value.to_string());
-                    }
-                    Some(symphonia::core::meta::StandardTagKey::TrackNumber) if track_number.is_none() => {
-                        track_number = Some(tag.value.to_string());
-                    }
-                    Some(symphonia::core::meta::StandardTagKey::TrackTotal) if track_total.is_none() => {
-                        track_total = Some(tag.value.to_string());
-                    }
-                    _ => {}
+    if let Some(tags) = probed.metadata.get().and_then(|m| m.current()).map(|m| m.tags()) {
+        for tag in tags {
+            match tag.std_key {
+                Some(symphonia::core::meta::StandardTagKey::TrackTitle) if title.is_none() => {
+                    title = Some(tag.value.to_string());
                 }
+                Some(symphonia::core::meta::StandardTagKey::Artist) if artist.is_none() => {
+                    artist = Some(tag.value.to_string());
+                }
+                Some(symphonia::core::meta::StandardTagKey::Album) if album.is_none() => {
+                    album = Some(tag.value.to_string());
+                }
+                Some(symphonia::core::meta::StandardTagKey::Date) if date.is_none() => {
+                    date = Some(tag.value.to_string());
+                }
+                Some(symphonia::core::meta::StandardTagKey::TrackNumber) if track_number.is_none() => {
+                    track_number = Some(tag.value.to_string());
+                }
+                Some(symphonia::core::meta::StandardTagKey::TrackTotal) if track_total.is_none() => {
+                    track_total = Some(tag.value.to_string());
+                }
+                _ => {}
             }
         }
     }
