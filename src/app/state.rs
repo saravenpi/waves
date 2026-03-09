@@ -3,7 +3,6 @@ use crate::types::{Column, ClipboardOperation, Liked, SidebarView, BrowsingMode,
 use crate::audio::PlayerState;
 use crate::file_operations::SearchResult;
 use crate::ui::input::MetadataEditor;
-use crate::update::{UpdateChecker, UpdateStatus};
 
 use rodio::OutputStream;
 use rustfft::FftPlanner;
@@ -85,11 +84,6 @@ pub struct WavesApp {
     pub song_loading_started: Option<std::time::Instant>,
     pub song_data_receiver: Receiver<SongLoadData>,
     pub song_data_sender: Sender<SongLoadData>,
-    pub update_checker: UpdateChecker,
-    pub current_update_status: Option<UpdateStatus>,
-    pub show_update_dialog: bool,
-    pub update_available_version: Option<String>,
-    pub update_in_progress: bool,
     pub scroll_to_selection: bool,
     pub dots: Vec<Dot>,
     pub dots_initialized: bool,
@@ -245,11 +239,6 @@ impl WavesApp {
             song_loading_started: None,
             song_data_receiver: song_data_rx,
             song_data_sender: song_data_tx,
-            update_checker: UpdateChecker::new(),
-            current_update_status: None,
-            show_update_dialog: false,
-            update_available_version: None,
-            update_in_progress: false,
             scroll_to_selection: false,
             dots: Vec::new(),
             dots_initialized: false,
