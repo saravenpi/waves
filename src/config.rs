@@ -31,28 +31,6 @@ impl Default for AnimationType {
     }
 }
 
-impl AnimationType {
-    pub fn all() -> Vec<AnimationType> {
-        vec![
-            AnimationType::Spectrum,
-            AnimationType::WaveformPulse,
-            AnimationType::CircleSpectrum,
-            AnimationType::Agbe,
-            AnimationType::Dots,
-        ]
-    }
-
-    pub fn display_name(&self) -> &str {
-        match self {
-            AnimationType::Spectrum => "Spectrum Bars",
-            AnimationType::WaveformPulse => "Waveform Pulse",
-            AnimationType::CircleSpectrum => "Circle Spectrum",
-            AnimationType::Agbe => "Pulsating Rings",
-            AnimationType::Dots => "Gravity Dots",
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     #[serde(default = "default_true")]

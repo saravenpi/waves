@@ -48,7 +48,6 @@ pub struct WavesApp {
     pub liked_selected: usize,
     pub config: Config,
     pub file_to_play_on_start: Option<PathBuf>,
-    pub default_folder_input: String,
     pub search_open: bool,
     pub search_just_opened: bool,
     pub search_query: String,
@@ -87,6 +86,8 @@ pub struct WavesApp {
     pub scroll_to_selection: bool,
     pub dots: Vec<Dot>,
     pub dots_initialized: bool,
+    pub hann_window: Vec<f32>,
+    pub freq_bands: Vec<(f32, f32)>,
 }
 
 pub enum CacheResult {
@@ -162,10 +163,8 @@ impl WavesApp {
         let (album_cover_sender, album_cover_receiver) = channel();
         let (song_data_tx, song_data_rx) = channel();
 
-        let default_folder_input = config.default_folder.clone().unwrap_or_else(|| String::from("~/Music"));
-
         if config.startup_sound_enabled {
-            crate::startup_sound::play_startup_sound();
+            crate::sound::play_startup_sound();
         }
 
         let audio_stream = match rodio::OutputStreamBuilder::open_default_stream() {
@@ -203,7 +202,6 @@ impl WavesApp {
             liked_selected: 0,
             config,
             file_to_play_on_start: file_to_play,
-            default_folder_input,
             search_open: false,
             search_just_opened: false,
             search_query: String::new(),
@@ -242,6 +240,14 @@ impl WavesApp {
             scroll_to_selection: false,
             dots: Vec::new(),
             dots_initialized: false,
+            hann_window: (0..4096).map(|i| {
+                0.5 - 0.5 * ((2.0 * std::f32::consts::PI * i as f32) / 4096.0).cos()
+            }).collect(),
+            freq_bands: (0..64).map(|i| {
+                let freq_min = 20.0 * (20000.0_f32 / 20.0).powf(i as f32 / 64.0);
+                let freq_max = 20.0 * (20000.0_f32 / 20.0).powf((i + 1) as f32 / 64.0);
+                (freq_min, freq_max)
+            }).collect(),
         };
 
         app.update_columns();

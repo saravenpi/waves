@@ -10,16 +10,6 @@ pub enum ContextMenuAction {
     EditMetadata,
 }
 
-#[allow(dead_code)]
-pub fn truncate_text(text: &str, max_chars: usize) -> String {
-    if text.chars().count() <= max_chars {
-        text.to_string()
-    } else {
-        let truncated: String = text.chars().take(max_chars.saturating_sub(3)).collect();
-        format!("{}...", truncated)
-    }
-}
-
 pub fn show_text_prompt(
     ctx: &egui::Context,
     hint: &str,

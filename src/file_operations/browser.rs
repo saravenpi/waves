@@ -1,4 +1,4 @@
-use crate::types::{FileEntry, Column};
+use crate::types::FileEntry;
 use crate::metadata::extract_metadata;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -58,45 +58,6 @@ pub fn read_directory(path: &Path) -> Vec<FileEntry> {
     }
 
     entries
-}
-
-#[allow(dead_code)]
-pub fn update_columns(
-    current_dir: &PathBuf,
-    columns: &mut Vec<Column>,
-) {
-    update_columns_with_selection(current_dir, columns, None);
-}
-
-#[allow(dead_code)]
-pub fn update_columns_with_selection(
-    current_dir: &PathBuf,
-    columns: &mut Vec<Column>,
-    selection: Option<usize>,
-) {
-    let current_selection = if let Some(sel) = selection {
-        sel
-    } else if !columns.is_empty() {
-        columns[0].selected
-    } else {
-        0
-    };
-
-    columns.clear();
-
-    let current_entries = read_directory(current_dir);
-
-    let selected = if current_entries.is_empty() {
-        0
-    } else {
-        current_selection.min(current_entries.len().saturating_sub(1))
-    };
-
-    let current_column = Column {
-        entries: current_entries,
-        selected,
-    };
-    columns.push(current_column);
 }
 
 pub fn collect_all_audio_files(root_path: &Path) -> Vec<PathBuf> {

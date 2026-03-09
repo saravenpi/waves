@@ -2,7 +2,7 @@ use rodio::{Decoder, OutputStream, OutputStreamBuilder, Sink};
 use std::io::Cursor;
 use std::cell::RefCell;
 
-static CURSOR_SOUND: &[u8] = include_bytes!("../assets/cursor_move.wav");
+static CURSOR_SOUND: &[u8] = include_bytes!("../../assets/cursor_move.wav");
 
 thread_local! {
     static AUDIO_STREAM: RefCell<Option<OutputStream>> = RefCell::new(None);

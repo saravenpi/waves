@@ -9,9 +9,7 @@ mod utils;
 mod album_cover;
 mod app;
 mod macos;
-mod cursor_sound;
-mod startup_sound;
-mod delete_sound;
+mod sound;
 
 use app::WavesApp;
 use config::Config;
@@ -19,7 +17,7 @@ use eframe::egui;
 use std::sync::mpsc;
 
 fn main() -> eframe::Result {
-    cursor_sound::init_sound_system();
+    sound::init_sound_system();
 
     let config = Config::load();
 

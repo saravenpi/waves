@@ -1,6 +1,14 @@
 pub mod animations;
 pub mod components;
+pub mod dialogs;
+pub mod fullscreen;
 pub mod helpers;
 pub mod input;
-pub mod render;
+pub mod layout;
+pub mod playback_ui;
+pub mod search_ui;
+pub mod settings;
+pub mod sidebar;
 pub mod spinner;
+pub mod startup;
+pub mod status_bar;

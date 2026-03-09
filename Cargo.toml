@@ -27,3 +27,6 @@ objc = "0.2.7"
 objc-foundation = "0.1.1"
 cocoa = "0.26.1"
 raw-window-handle = "0.6"
+
+[lints.rust]
+unexpected_cfgs = "allow"

@@ -1,4 +1,3 @@
-use crate::config::Config;
 use crate::metadata::extract_metadata;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -6,7 +5,6 @@ use std::path::{Path, PathBuf};
 #[derive(Clone)]
 pub struct SearchResult {
     pub path: PathBuf,
-    pub filename: String,
     pub title: String,
     pub artist: Option<String>,
     pub album: Option<String>,
@@ -123,7 +121,6 @@ fn extract_and_check(path: &PathBuf, query_lower: &str) -> Option<SearchResult> 
         let relevance = calculate_relevance(&title, &artist, &name, query_lower);
         Some(SearchResult {
             path: path.clone(),
-            filename: name,
             title,
             artist,
             album,
@@ -170,59 +167,4 @@ fn collect_audio_files(
             }
         }
     }
-}
-
-#[allow(dead_code)]
-pub fn perform_search(
-    search_query: &str,
-    config: &Config,
-) -> Vec<SearchResult> {
-    if search_query.trim().is_empty() {
-        return Vec::new();
-    }
-
-    if search_query.trim().len() < 2 {
-        return Vec::new();
-    }
-
-    let search_dir = if let Some(ref default_folder) = config.default_folder {
-        let expanded = shellexpand::tilde(default_folder).to_string();
-        let path = PathBuf::from(expanded);
-        if path.exists() && path.is_dir() {
-            path
-        } else {
-            eprintln!("Default folder does not exist: {:?}", path);
-            return Vec::new();
-        }
-    } else {
-        if let Some(music_dir) = dirs::audio_dir() {
-            if music_dir.exists() && music_dir.is_dir() {
-                music_dir
-            } else if let Some(home) = dirs::home_dir() {
-                let music_fallback = home.join("Music");
-                if music_fallback.exists() && music_fallback.is_dir() {
-                    music_fallback
-                } else {
-                    eprintln!("No music directory found");
-                    return Vec::new();
-                }
-            } else {
-                eprintln!("No music directory found");
-                return Vec::new();
-            }
-        } else if let Some(home) = dirs::home_dir() {
-            let music_dir = home.join("Music");
-            if music_dir.exists() && music_dir.is_dir() {
-                music_dir
-            } else {
-                eprintln!("No music directory found");
-                return Vec::new();
-            }
-        } else {
-            eprintln!("No music directory found");
-            return Vec::new();
-        }
-    };
-
-    search_audio_files(&search_dir, search_query)
 }
