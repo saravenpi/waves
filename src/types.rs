@@ -20,7 +20,7 @@ pub enum ClipboardOperation {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Favorite {
+pub struct Liked {
     pub path: PathBuf,
     pub name: String,
     pub is_dir: bool,
@@ -29,7 +29,7 @@ pub struct Favorite {
 
 pub enum SidebarView {
     FileBrowser,
-    Favorites,
+    Liked,
     Settings,
 }
 

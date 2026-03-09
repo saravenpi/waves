@@ -1,16 +1,10 @@
 use crate::app::WavesApp;
-use crate::types::{FileEntry, ClipboardOperation, Favorite, SidebarView, BrowsingMode, GroupedView};
+use crate::types::{FileEntry, ClipboardOperation, Liked, SidebarView, BrowsingMode, GroupedView};
 use crate::metadata::extract_metadata;
 use crate::ui::input::MetadataEditor;
 use eframe::egui;
 
 impl WavesApp {
-    /// Handles keyboard navigation for file browsing and playback control.
-    ///
-    /// Processes vim-style keybindings (h/j/k/l) for navigation and media controls.
-    /// # Arguments
-    /// * `key` - The keyboard key that was pressed
-    /// * `ctx` - egui context for UI operations
     pub fn handle_navigation(&mut self, key: egui::Key, ctx: &egui::Context) {
         if self.columns.is_empty() {
             return;
@@ -21,13 +15,13 @@ impl WavesApp {
         }
 
         match key {
-            // vim-style: 'g' followed by 'g' within 500ms to go to top
+
             egui::Key::G => {
-                // Check if this is 'gg' (two g presses within 500ms)
+
                 let now = std::time::Instant::now();
                 if let Some(last_press) = self.last_g_press {
                     if now.duration_since(last_press).as_millis() < 500 {
-                        // This is 'gg' - go to top
+
                         let mut moved = false;
                         match self.sidebar_view {
                             SidebarView::FileBrowser => {
@@ -36,9 +30,9 @@ impl WavesApp {
                                     moved = true;
                                 }
                             }
-                            SidebarView::Favorites => {
-                                if !self.favorites.is_empty() && self.favorites_selected != 0 {
-                                    self.favorites_selected = 0;
+                            SidebarView::Liked => {
+                                if !self.liked.is_empty() && self.liked_selected != 0 {
+                                    self.liked_selected = 0;
                                     moved = true;
                                 }
                             }
@@ -60,10 +54,10 @@ impl WavesApp {
                         return;
                     }
                 }
-                // First 'g' press or Shift+G (Go to bottom)
-                // Check if Shift is held for 'G' (go to bottom)
+
+
                 if ctx.input(|i| i.modifiers.shift) {
-                    // Shift+G - go to bottom
+
                     let mut moved = false;
                     match self.sidebar_view {
                         SidebarView::FileBrowser => {
@@ -75,11 +69,11 @@ impl WavesApp {
                                 }
                             }
                         }
-                        SidebarView::Favorites => {
-                            if !self.favorites.is_empty() {
-                                let last = self.favorites.len().saturating_sub(1);
-                                if self.favorites_selected != last {
-                                    self.favorites_selected = last;
+                        SidebarView::Liked => {
+                            if !self.liked.is_empty() {
+                                let last = self.liked.len().saturating_sub(1);
+                                if self.liked_selected != last {
+                                    self.liked_selected = last;
                                     moved = true;
                                 }
                             }
@@ -102,7 +96,7 @@ impl WavesApp {
                     }
                     self.last_g_press = None;
                 } else {
-                    // Just 'g' - remember this press for potential 'gg'
+
                     self.last_g_press = Some(now);
                 }
             }
@@ -114,19 +108,19 @@ impl WavesApp {
                             if self.columns[0].selected < self.columns[0].entries.len().saturating_sub(1) {
                                 self.columns[0].selected += 1;
                             } else {
-                                // Wrap around to top
+
                                 self.columns[0].selected = 0;
                             }
                             moved = true;
                         }
                     }
-                    SidebarView::Favorites => {
-                        if !self.favorites.is_empty() {
-                            if self.favorites_selected < self.favorites.len().saturating_sub(1) {
-                                self.favorites_selected += 1;
+                    SidebarView::Liked => {
+                        if !self.liked.is_empty() {
+                            if self.liked_selected < self.liked.len().saturating_sub(1) {
+                                self.liked_selected += 1;
                             } else {
-                                // Wrap around to top
-                                self.favorites_selected = 0;
+
+                                self.liked_selected = 0;
                             }
                             moved = true;
                         }
@@ -136,7 +130,7 @@ impl WavesApp {
                         if self.settings_focused_item < max_items - 1 {
                             self.settings_focused_item += 1;
                         } else {
-                            // Wrap around to top
+
                             self.settings_focused_item = 0;
                         }
                         moved = true;
@@ -158,19 +152,19 @@ impl WavesApp {
                             if self.columns[0].selected > 0 {
                                 self.columns[0].selected -= 1;
                             } else {
-                                // Wrap around to bottom
+
                                 self.columns[0].selected = self.columns[0].entries.len().saturating_sub(1);
                             }
                             moved = true;
                         }
                     }
-                    SidebarView::Favorites => {
-                        if !self.favorites.is_empty() {
-                            if self.favorites_selected > 0 {
-                                self.favorites_selected -= 1;
+                    SidebarView::Liked => {
+                        if !self.liked.is_empty() {
+                            if self.liked_selected > 0 {
+                                self.liked_selected -= 1;
                             } else {
-                                // Wrap around to bottom
-                                self.favorites_selected = self.favorites.len().saturating_sub(1);
+
+                                self.liked_selected = self.liked.len().saturating_sub(1);
                             }
                             moved = true;
                         }
@@ -180,7 +174,7 @@ impl WavesApp {
                         if self.settings_focused_item > 0 {
                             self.settings_focused_item -= 1;
                         } else {
-                            // Wrap around to bottom
+
                             self.settings_focused_item = max_items - 1;
                         }
                         moved = true;
@@ -224,8 +218,8 @@ impl WavesApp {
                             }
                         }
                     }
-                    SidebarView::Favorites => {
-                        if let Some(fav) = self.favorites.get(self.favorites_selected).cloned() {
+                    SidebarView::Liked => {
+                        if let Some(fav) = self.liked.get(self.liked_selected).cloned() {
                             if fav.is_dir {
                                 self.current_dir = fav.path.clone();
                                 self.update_columns_with_selection(Some(0));
@@ -484,10 +478,10 @@ impl WavesApp {
                             );
                         }
                     }
-                    SidebarView::Favorites => {
-                        if self.favorites_selected > 0 {
-                            self.favorites_selected -= 1;
-                            if let Some(fav) = self.favorites.get(self.favorites_selected).cloned() {
+                    SidebarView::Liked => {
+                        if self.liked_selected > 0 {
+                            self.liked_selected -= 1;
+                            if let Some(fav) = self.liked.get(self.liked_selected).cloned() {
                                 if !fav.is_dir {
                                     self.play_file(&fav.path, ctx);
                                 }
@@ -496,7 +490,7 @@ impl WavesApp {
                     }
                     SidebarView::FileBrowser => {
                         match self.playback_context {
-                            SidebarView::Favorites => self.play_previous_favorite(ctx),
+                            SidebarView::Liked => self.play_previous_liked(ctx),
                             _ => self.play_previous_song(ctx),
                         }
                     }
@@ -538,10 +532,10 @@ impl WavesApp {
                             );
                         }
                     }
-                    SidebarView::Favorites => {
-                        if self.favorites_selected < self.favorites.len().saturating_sub(1) {
-                            self.favorites_selected += 1;
-                            if let Some(fav) = self.favorites.get(self.favorites_selected).cloned() {
+                    SidebarView::Liked => {
+                        if self.liked_selected < self.liked.len().saturating_sub(1) {
+                            self.liked_selected += 1;
+                            if let Some(fav) = self.liked.get(self.liked_selected).cloned() {
                                 if !fav.is_dir {
                                     self.play_file(&fav.path, ctx);
                                 }
@@ -550,7 +544,7 @@ impl WavesApp {
                     }
                     SidebarView::FileBrowser => {
                         match self.playback_context {
-                            SidebarView::Favorites => self.play_next_favorite(ctx),
+                            SidebarView::Liked => self.play_next_liked(ctx),
                             _ => self.play_next_song(ctx),
                         }
                     }
@@ -695,8 +689,8 @@ impl WavesApp {
                             }
                         }
                     }
-                    SidebarView::Favorites => {
-                        if let Some(fav) = self.favorites.get(self.favorites_selected).cloned() {
+                    SidebarView::Liked => {
+                        if let Some(fav) = self.liked.get(self.liked_selected).cloned() {
                             if !fav.is_dir {
                                 let (title, artist, _album, date, _track, _duration) = extract_metadata(&fav.path);
                                 let existing_cover_data = crate::album_cover::extract_album_cover(&fav.path);
@@ -727,29 +721,29 @@ impl WavesApp {
                 if ctx.input(|i| i.modifiers.shift) {
                     self.sidebar_view = match self.sidebar_view {
                         SidebarView::FileBrowser => SidebarView::Settings,
-                        SidebarView::Favorites => SidebarView::FileBrowser,
+                        SidebarView::Liked => SidebarView::FileBrowser,
                         SidebarView::Settings => {
-                            // Ensure favorites_selected is valid when switching to Favorites
-                            if self.favorites_selected >= self.favorites.len() && !self.favorites.is_empty() {
-                                self.favorites_selected = self.favorites.len() - 1;
-                            } else if self.favorites.is_empty() {
-                                self.favorites_selected = 0;
+
+                            if self.liked_selected >= self.liked.len() && !self.liked.is_empty() {
+                                self.liked_selected = self.liked.len() - 1;
+                            } else if self.liked.is_empty() {
+                                self.liked_selected = 0;
                             }
-                            SidebarView::Favorites
+                            SidebarView::Liked
                         },
                     };
                 } else {
                     self.sidebar_view = match self.sidebar_view {
                         SidebarView::FileBrowser => {
-                            // Ensure favorites_selected is valid when switching to Favorites
-                            if self.favorites_selected >= self.favorites.len() && !self.favorites.is_empty() {
-                                self.favorites_selected = self.favorites.len() - 1;
-                            } else if self.favorites.is_empty() {
-                                self.favorites_selected = 0;
+
+                            if self.liked_selected >= self.liked.len() && !self.liked.is_empty() {
+                                self.liked_selected = self.liked.len() - 1;
+                            } else if self.liked.is_empty() {
+                                self.liked_selected = 0;
                             }
-                            SidebarView::Favorites
+                            SidebarView::Liked
                         },
-                        SidebarView::Favorites => SidebarView::Settings,
+                        SidebarView::Liked => SidebarView::Settings,
                         SidebarView::Settings => SidebarView::FileBrowser,
                     };
                 }
@@ -780,9 +774,6 @@ impl WavesApp {
         }
     }
 
-    /// Toggles the favorite status of the currently selected file.
-    ///
-    /// Adds or removes the selected file from the favorites list and persists changes.
     pub fn toggle_favorite(&mut self) {
         let entry = match self.sidebar_view {
             SidebarView::FileBrowser => {
@@ -791,11 +782,11 @@ impl WavesApp {
                 }
                 self.columns[0].entries.get(self.columns[0].selected).cloned()
             }
-            SidebarView::Favorites => {
-                if self.favorites.is_empty() || self.favorites_selected >= self.favorites.len() {
+            SidebarView::Liked => {
+                if self.liked.is_empty() || self.liked_selected >= self.liked.len() {
                     return;
                 }
-                let fav = &self.favorites[self.favorites_selected];
+                let fav = &self.liked[self.liked_selected];
                 Some(FileEntry {
                     name: fav.name.clone(),
                     path: fav.path.clone(),
@@ -812,28 +803,24 @@ impl WavesApp {
                 return;
             }
 
-            if let Some(pos) = self.favorites.iter().position(|f| f.path == entry.path) {
-                self.favorites.remove(pos);
-                if self.favorites_selected >= self.favorites.len() && self.favorites_selected > 0 {
-                    self.favorites_selected = self.favorites.len() - 1;
+            if let Some(pos) = self.liked.iter().position(|f| f.path == entry.path) {
+                self.liked.remove(pos);
+                if self.liked_selected >= self.liked.len() && self.liked_selected > 0 {
+                    self.liked_selected = self.liked.len() - 1;
                 }
             } else {
-                self.favorites.insert(0, Favorite {
+                self.liked.insert(0, Liked {
                     path: entry.path.clone(),
                     name: entry.name.clone(),
                     is_dir: entry.is_dir,
                     timestamp: std::time::SystemTime::now(),
                 });
-                self.favorites_selected = 0;
+                self.liked_selected = 0;
             }
-            crate::favorites::save(&self.favorites);
+            crate::liked::save(&self.liked);
         }
     }
 
-    /// Pastes the file or folder from clipboard to the selected destination.
-    ///
-    /// Performs copy or move operation depending on clipboard operation type.
-    /// Handles both files and directories recursively.
     pub fn paste_clipboard(&mut self) {
         if let Some((source_path, operation)) = &self.clipboard {
             let source_name = source_path.file_name()

@@ -1,6 +1,6 @@
 mod config;
 mod types;
-mod favorites;
+mod liked;
 mod metadata;
 mod audio;
 mod file_operations;
@@ -19,10 +19,6 @@ use config::Config;
 use eframe::egui;
 use std::sync::mpsc;
 
-/// Entry point for the WAVES music player application.
-///
-/// Initializes the GUI window with custom fonts, styling, and configuration.
-/// Loads application icon and sets up the eframe viewport with user preferences.
 fn main() -> eframe::Result {
     cursor_sound::init_sound_system();
 

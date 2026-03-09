@@ -15,11 +15,6 @@ impl<I> SpectrumCapture<I>
 where
     I: Source<Item = f32>,
 {
-    /// Creates a new spectrum capture wrapper around an audio source.
-    ///
-    /// # Arguments
-    /// * `input` - The audio source to wrap
-    /// * `buffer` - Shared buffer to store captured audio samples for FFT analysis
     pub fn new(input: I, buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
         let sample_rate = input.sample_rate();
         let channels = input.channels();
@@ -74,16 +69,6 @@ where
     }
 }
 
-/// Updates spectrum analyzer bars by performing FFT on audio buffer.
-///
-/// Processes 4096 samples with Hann windowing into 64 logarithmic frequency bands.
-/// Applies smoothing factors and gravity effect for smooth visualization.
-/// # Arguments
-/// * `spectrum_bars` - Mutable array of bar heights to update
-/// * `fft_planner` - FFT planner for forward transform
-/// * `audio_buffer` - Shared buffer containing recent audio samples
-/// * `sample_rate` - Audio sample rate in Hz
-/// * `channels` - Number of audio channels (mono/stereo)
 #[allow(dead_code)]
 pub fn update_spectrum_bars(
     spectrum_bars: &mut Vec<f32>,

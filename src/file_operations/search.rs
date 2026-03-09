@@ -18,10 +18,10 @@ fn calculate_relevance(title: &str, artist: &Option<String>, filename: &str, que
     let filename_lower = filename.to_lowercase();
     let artist_lower = artist.as_ref().map(|a| a.to_lowercase());
 
-    // Higher score = better match
+
     let mut score = 0;
 
-    // Exact title match: highest priority
+
     if title_lower == query_lower {
         score += 1000;
     } else if title_lower.starts_with(query_lower) {
@@ -30,7 +30,7 @@ fn calculate_relevance(title: &str, artist: &Option<String>, filename: &str, que
         score += 100;
     }
 
-    // Artist match
+
     if let Some(ref artist_l) = artist_lower {
         if artist_l == query_lower {
             score += 800;
@@ -41,7 +41,7 @@ fn calculate_relevance(title: &str, artist: &Option<String>, filename: &str, que
         }
     }
 
-    // Filename match (fallback)
+
     if filename_lower.starts_with(query_lower) {
         score += 300;
     } else if filename_lower.contains(query_lower) {
@@ -55,11 +55,11 @@ pub fn search_audio_files(directory: &Path, query: &str) -> Vec<SearchResult> {
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
-    // Collect all audio files up to a reasonable limit
+
     let mut all_files: Vec<PathBuf> = Vec::new();
     collect_audio_files(directory, &mut all_files, 0, 4);
 
-    // Process files: prioritize filename matches, then check metadata
+
     let mut filename_matches = Vec::new();
     let mut other_files = Vec::new();
 
@@ -74,14 +74,14 @@ pub fn search_audio_files(directory: &Path, query: &str) -> Vec<SearchResult> {
         }
     }
 
-    // Process filename matches first (up to 20)
+
     for path in filename_matches.iter().take(20) {
         if let Some(result) = extract_and_check(&path, &query_lower) {
             results.push(result);
         }
     }
 
-    // If we need more results, check other files' metadata (up to 30 total)
+
     let needed = 30_usize.saturating_sub(results.len());
     for path in other_files.iter().take(needed) {
         if let Some(result) = extract_and_check(&path, &query_lower) {
@@ -89,7 +89,7 @@ pub fn search_audio_files(directory: &Path, query: &str) -> Vec<SearchResult> {
         }
     }
 
-    // Sort by relevance (highest first)
+
     results.sort_by(|a, b| b.relevance.cmp(&a.relevance));
 
     results
@@ -108,7 +108,7 @@ fn extract_and_check(path: &PathBuf, query_lower: &str) -> Option<SearchResult> 
         Err(_) => (name.clone(), None, None)
     };
 
-    // Check if any field matches
+
     let title_lower = title.to_lowercase();
     let artist_lower = artist.as_ref().map(|a| a.to_lowercase());
     let album_lower = album.as_ref().map(|a| a.to_lowercase());

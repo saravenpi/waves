@@ -4,7 +4,7 @@ use crate::metadata::extract_metadata;
 use crate::app::state::SongLoadData;
 use crate::WavesApp;
 use eframe::egui;
-use rodio::{Decoder, OutputStreamBuilder, Sink, Source};
+use rodio::{Decoder, Sink, Source};
 use rustfft::num_complex::Complex;
 use std::collections::VecDeque;
 use std::fs::File;
@@ -14,17 +14,17 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 impl WavesApp {
-    /// Queues an audio file to be played in the background.
-    ///
-    /// Spawns a background thread to load file data and metadata while the UI shows a spinner.
-    /// # Arguments
-    /// * `path` - Path to the audio file to play
-    /// * `_ctx` - egui context (currently unused but kept for future use)
     pub fn play_file(&mut self, path: &Path, _ctx: &egui::Context) {
         let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
         if !matches!(ext, "mp3" | "wav" | "flac" | "ogg" | "m4a") {
             return;
         }
+
+        if self.song_loading {
+            return;
+        }
+
+        while self.song_data_receiver.try_recv().is_ok() {}
 
         self.song_loading = true;
         self.song_loading_started = Some(std::time::Instant::now());
@@ -62,9 +62,6 @@ impl WavesApp {
         });
     }
 
-    /// Processes loaded song data and starts playback.
-    ///
-    /// Called from the render loop to check for loaded song data.
     pub fn process_loaded_song(&mut self) {
         if let Some(started) = self.song_loading_started {
             if started.elapsed() > Duration::from_secs(30) {
@@ -80,123 +77,121 @@ impl WavesApp {
             Err(_) => return,
         };
 
-        match OutputStreamBuilder::open_default_stream() {
-            Ok(_stream) => {
-                let sink = Sink::connect_new(_stream.mixer());
-                {
-                        let cursor = Cursor::new(data.file_bytes);
-                        let ext = data.path.extension()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or("")
-                            .to_lowercase();
-                        let decoder_result = std::panic::catch_unwind(
-                            std::panic::AssertUnwindSafe(|| {
-                                match ext.as_str() {
-                                    "m4a" | "mp4" | "aac" => Decoder::new_mp4(cursor),
-                                    _ => Decoder::new(cursor),
-                                }
-                            })
-                        );
-                        let source = match decoder_result {
-                            Ok(Ok(s)) => s,
-                            Ok(Err(e)) => {
-                                eprintln!("Failed to decode audio file {:?}: {}", data.path, e);
-                                self.song_loading = false;
-                                self.song_loading_started = None;
-                                return;
-                            }
-                            Err(_) => {
-                                eprintln!("Panic while decoding audio file {:?}", data.path);
-                                self.song_loading = false;
-                                self.song_loading_started = None;
-                                return;
-                            }
-                        };
-
-                        let sample_rate = source.sample_rate();
-                        let channels = source.channels();
-                        let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
-
-                        let captured_source = SpectrumCapture::new(
-                            source,
-                            audio_buffer.clone()
-                        );
-
-                        sink.append(captured_source);
-                        sink.set_volume(self.volume);
-
-                        let mut player = self.player.lock().unwrap();
-                        *player = Some(PlayerState {
-                            _stream,
-                            sink,
-                            current_file: data.path.clone(),
-                            waveform: data.waveform,
-                            audio_buffer,
-                            sample_rate,
-                            channels,
-                            duration: data.duration,
-                            start_time: Instant::now(),
-                            pause_offset: Duration::from_secs(0),
-                            title: data.title,
-                            artist: data.artist,
-                            album_cover: None,
-                        });
-
-                        self.song_loading = false;
-                        self.song_loading_started = None;
-
-                        self.dots_initialized = false;
-
-                        if !self.waveform_cache.contains_key(&data.path) {
-                            let path_clone = data.path.clone();
-                            let sender = self.waveform_sender.clone();
-                            std::thread::spawn(move || {
-                                let result = std::panic::catch_unwind(|| {
-                                    extract_waveform(&path_clone)
-                                });
-                                if let Ok(waveform) = result {
-                                    let _ = sender.send((path_clone, waveform));
-                                } else {
-                                    eprintln!("Panic while extracting waveform for {:?}", path_clone);
-                                }
-                            });
-                        }
-
-                        let path_clone = data.path.clone();
-                        let sender = self.album_cover_sender.clone();
-                        std::thread::spawn(move || {
-                            let result = std::panic::catch_unwind(|| {
-                                extract_album_cover(&path_clone)
-                            });
-
-                            if let Ok(Some(cover_data)) = result {
-                                if let Ok(img) = image::load_from_memory(&cover_data) {
-                                    let size = [img.width() as usize, img.height() as usize];
-                                    let rgba = img.to_rgba8();
-                                    let pixels = rgba.as_flat_samples();
-                                    if let Ok(color_image) = std::panic::catch_unwind(|| {
-                                        egui::ColorImage::from_rgba_unmultiplied(
-                                            size,
-                                            pixels.as_slice()
-                                        )
-                                    }) {
-                                        let _ = sender.send((path_clone, color_image));
-                                    }
-                                }
-                            }
-                        });
-                }
-            }
-            Err(_) => {
+        let stream = match &self.audio_stream {
+            Some(s) => s,
+            None => {
+                eprintln!("No audio stream available");
                 self.song_loading = false;
                 self.song_loading_started = None;
-            },
+                return;
+            }
+        };
+
+        let sink = Sink::connect_new(stream.mixer());
+        {
+            let cursor = Cursor::new(data.file_bytes);
+            let ext = data.path.extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            let decoder_result = std::panic::catch_unwind(
+                std::panic::AssertUnwindSafe(|| {
+                    match ext.as_str() {
+                        "m4a" | "mp4" | "aac" => Decoder::new_mp4(cursor),
+                        _ => Decoder::new(cursor),
+                    }
+                })
+            );
+            let source = match decoder_result {
+                Ok(Ok(s)) => s,
+                Ok(Err(e)) => {
+                    eprintln!("Failed to decode audio file {:?}: {}", data.path, e);
+                    self.song_loading = false;
+                    self.song_loading_started = None;
+                    return;
+                }
+                Err(_) => {
+                    eprintln!("Panic while decoding audio file {:?}", data.path);
+                    self.song_loading = false;
+                    self.song_loading_started = None;
+                    return;
+                }
+            };
+
+            let sample_rate = source.sample_rate();
+            let channels = source.channels();
+            let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+
+            let captured_source = SpectrumCapture::new(
+                source,
+                audio_buffer.clone()
+            );
+
+            sink.append(captured_source);
+            sink.set_volume(self.volume);
+
+            let mut player = self.player.lock().unwrap();
+            *player = Some(PlayerState {
+                sink,
+                current_file: data.path.clone(),
+                waveform: data.waveform,
+                audio_buffer,
+                sample_rate,
+                channels,
+                duration: data.duration,
+                start_time: Instant::now(),
+                pause_offset: Duration::from_secs(0),
+                title: data.title,
+                artist: data.artist,
+                album_cover: None,
+            });
+
+            self.song_loading = false;
+            self.song_loading_started = None;
+
+            self.dots_initialized = false;
+
+            if !self.waveform_cache.contains_key(&data.path) {
+                let path_clone = data.path.clone();
+                let sender = self.waveform_sender.clone();
+                std::thread::spawn(move || {
+                    let result = std::panic::catch_unwind(|| {
+                        extract_waveform(&path_clone)
+                    });
+                    if let Ok(waveform) = result {
+                        let _ = sender.send((path_clone, waveform));
+                    } else {
+                        eprintln!("Panic while extracting waveform for {:?}", path_clone);
+                    }
+                });
+            }
+
+            let path_clone = data.path.clone();
+            let sender = self.album_cover_sender.clone();
+            std::thread::spawn(move || {
+                let result = std::panic::catch_unwind(|| {
+                    extract_album_cover(&path_clone)
+                });
+
+                if let Ok(Some(cover_data)) = result {
+                    if let Ok(img) = image::load_from_memory(&cover_data) {
+                        let size = [img.width() as usize, img.height() as usize];
+                        let rgba = img.to_rgba8();
+                        let pixels = rgba.as_flat_samples();
+                        if let Ok(color_image) = std::panic::catch_unwind(|| {
+                            egui::ColorImage::from_rgba_unmultiplied(
+                                size,
+                                pixels.as_slice()
+                            )
+                        }) {
+                            let _ = sender.send((path_clone, color_image));
+                        }
+                    }
+                }
+            });
         }
     }
 
-    /// Toggles pause/play state of the currently playing track.
-    ///
-    /// Updates playback timing state to maintain accurate position tracking.
     pub fn toggle_pause(&mut self) {
         if let Ok(mut player) = self.player.lock() {
             if let Some(state) = player.as_mut() {
@@ -212,10 +207,6 @@ impl WavesApp {
         }
     }
 
-    /// Returns the current playback position accounting for pause state.
-    ///
-    /// # Returns
-    /// Current position as Duration, or None if no track is playing
     pub fn get_current_position(&self) -> Option<Duration> {
         if let Ok(player) = self.player.lock() {
             if let Some(state) = player.as_ref() {
@@ -232,11 +223,6 @@ impl WavesApp {
         None
     }
 
-    /// Plays the next audio file in the current directory.
-    ///
-    /// Wraps around to the first track when reaching the end of the playlist.
-    /// # Arguments
-    /// * `ctx` - egui context for UI updates
     pub fn play_next_song(&mut self, ctx: &egui::Context) {
         use crate::types::{BrowsingMode, GroupedView};
 
@@ -297,11 +283,6 @@ impl WavesApp {
         }
     }
 
-    /// Plays the previous audio file in the current directory.
-    ///
-    /// Wraps around to the last track when at the beginning of the playlist.
-    /// # Arguments
-    /// * `ctx` - egui context for UI updates
     pub fn play_previous_song(&mut self, ctx: &egui::Context) {
         use crate::types::{BrowsingMode, GroupedView};
 
@@ -370,14 +351,6 @@ impl WavesApp {
         }
     }
 
-    /// Updates the spectrum analyzer bars using FFT on the audio buffer.
-    ///
-    /// Performs 4096-sample FFT with Hann window and logarithmic frequency bands.
-    /// Applies smoothing and gravity effects for natural bar movement.
-    /// # Arguments
-    /// * `audio_buffer` - Circular buffer containing recent audio samples
-    /// * `sample_rate` - Audio sample rate in Hz
-    /// * `channels` - Number of audio channels
     pub fn update_spectrum(&mut self, audio_buffer: &Arc<Mutex<VecDeque<f32>>>, sample_rate: u32, channels: u16) {
         const NUM_BARS: usize = 64;
         const FFT_SIZE: usize = 4096;
@@ -489,13 +462,8 @@ impl WavesApp {
         }
     }
 
-    /// Plays the next audio file in the favorites list.
-    ///
-    /// Wraps around to the first favorite when reaching the end.
-    /// # Arguments
-    /// * `ctx` - egui context for UI updates
-    pub fn play_next_favorite(&mut self, ctx: &egui::Context) {
-        if self.favorites.is_empty() {
+    pub fn play_next_liked(&mut self, ctx: &egui::Context) {
+        if self.liked.is_empty() {
             return;
         }
 
@@ -503,7 +471,7 @@ impl WavesApp {
             .as_ref()
             .map(|state| state.current_file.clone());
 
-        let audio_favorites: Vec<(usize, PathBuf)> = self.favorites.iter().enumerate()
+        let audio_liked: Vec<(usize, PathBuf)> = self.liked.iter().enumerate()
             .filter_map(|(idx, fav)| {
                 if fav.is_dir {
                     return None;
@@ -517,37 +485,32 @@ impl WavesApp {
             })
             .collect();
 
-        if audio_favorites.is_empty() {
+        if audio_liked.is_empty() {
             return;
         }
 
         if let Some(current) = current_file {
-            let current_pos = audio_favorites.iter().position(|(_, path)| path == &current);
+            let current_pos = audio_liked.iter().position(|(_, path)| path == &current);
 
             if let Some(pos) = current_pos {
-                let next_pos = (pos + 1) % audio_favorites.len();
-                let (idx, path) = &audio_favorites[next_pos];
-                self.favorites_selected = *idx;
+                let next_pos = (pos + 1) % audio_liked.len();
+                let (idx, path) = &audio_liked[next_pos];
+                self.liked_selected = *idx;
                 self.play_file(path, ctx);
             } else {
-                let (idx, path) = &audio_favorites[0];
-                self.favorites_selected = *idx;
+                let (idx, path) = &audio_liked[0];
+                self.liked_selected = *idx;
                 self.play_file(path, ctx);
             }
         } else {
-            let (idx, path) = &audio_favorites[0];
-            self.favorites_selected = *idx;
+            let (idx, path) = &audio_liked[0];
+            self.liked_selected = *idx;
             self.play_file(path, ctx);
         }
     }
 
-    /// Plays the previous audio file in the favorites list.
-    ///
-    /// Wraps around to the last favorite when at the beginning.
-    /// # Arguments
-    /// * `ctx` - egui context for UI updates
-    pub fn play_previous_favorite(&mut self, ctx: &egui::Context) {
-        if self.favorites.is_empty() {
+    pub fn play_previous_liked(&mut self, ctx: &egui::Context) {
+        if self.liked.is_empty() {
             return;
         }
 
@@ -555,7 +518,7 @@ impl WavesApp {
             .as_ref()
             .map(|state| state.current_file.clone());
 
-        let audio_favorites: Vec<(usize, PathBuf)> = self.favorites.iter().enumerate()
+        let audio_liked: Vec<(usize, PathBuf)> = self.liked.iter().enumerate()
             .filter_map(|(idx, fav)| {
                 if fav.is_dir {
                     return None;
@@ -569,39 +532,34 @@ impl WavesApp {
             })
             .collect();
 
-        if audio_favorites.is_empty() {
+        if audio_liked.is_empty() {
             return;
         }
 
         if let Some(current) = current_file {
-            let current_pos = audio_favorites.iter().position(|(_, path)| path == &current);
+            let current_pos = audio_liked.iter().position(|(_, path)| path == &current);
 
             if let Some(pos) = current_pos {
                 let prev_pos = if pos == 0 {
-                    audio_favorites.len() - 1
+                    audio_liked.len() - 1
                 } else {
                     pos - 1
                 };
-                let (idx, path) = &audio_favorites[prev_pos];
-                self.favorites_selected = *idx;
+                let (idx, path) = &audio_liked[prev_pos];
+                self.liked_selected = *idx;
                 self.play_file(path, ctx);
             } else {
-                let (idx, path) = &audio_favorites[audio_favorites.len() - 1];
-                self.favorites_selected = *idx;
+                let (idx, path) = &audio_liked[audio_liked.len() - 1];
+                self.liked_selected = *idx;
                 self.play_file(path, ctx);
             }
         } else {
-            let (idx, path) = &audio_favorites[audio_favorites.len() - 1];
-            self.favorites_selected = *idx;
+            let (idx, path) = &audio_liked[audio_liked.len() - 1];
+            self.liked_selected = *idx;
             self.play_file(path, ctx);
         }
     }
 
-    /// Seeks to a specific position in the currently playing track.
-    ///
-    /// Attempts fast seeking first, falls back to reloading and skipping if unsupported.
-    /// # Arguments
-    /// * `progress` - Target position as normalized value between 0.0 and 1.0
     pub fn seek_to_position(&mut self, progress: f32) {
         let target_duration = {
             let player = self.player.lock().unwrap();
@@ -633,13 +591,21 @@ impl WavesApp {
                     let volume = state.sink.volume();
                     drop(player);
 
+                    let stream = match &self.audio_stream {
+                        Some(s) => s,
+                        None => {
+                            eprintln!("No audio stream available for seeking");
+                            return;
+                        }
+                    };
+
                     match File::open(&current_path) {
                         Ok(file) => {
                             if let Ok(mut player) = self.player.lock() {
                                 if let Some(state) = player.as_mut() {
                                     audio_buffer.lock().unwrap().clear();
 
-                                    let new_sink = Sink::connect_new(state._stream.mixer());
+                                    let new_sink = Sink::connect_new(stream.mixer());
                                     state.sink.stop();
                                     state.sink = new_sink;
                                     state.sink.set_volume(volume);

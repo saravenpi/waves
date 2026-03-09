@@ -6,7 +6,7 @@ pub enum ContextMenuAction {
     Delete,
     Copy,
     Cut,
-    ToggleFavorite,
+    ToggleLike,
     EditMetadata,
 }
 
@@ -42,7 +42,7 @@ pub fn show_text_prompt(
         .show(ctx, |ui| {
             egui::Frame {
                 fill: egui::Color32::from_rgb(16, 16, 16),
-                stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
+                stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                 inner_margin: egui::Margin::same(12.0),
                 ..Default::default()
             }
@@ -94,7 +94,7 @@ pub fn show_context_menu(
         .show(ctx, |ui| {
             egui::Frame {
                 fill: egui::Color32::from_rgb(16, 16, 16),
-                stroke: egui::Stroke::new(1.0, egui::Color32::WHITE),
+                stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                 inner_margin: egui::Margin::same(4.0),
                 ..Default::default()
             }
@@ -111,7 +111,7 @@ pub fn show_context_menu(
                 let (bg_color, text_color, stroke) = if response.clicked() {
                     (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                 } else if response.hovered() {
-                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)))
                 } else {
                     (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                 };
@@ -141,7 +141,7 @@ pub fn show_context_menu(
                 let (bg_color, text_color, stroke) = if response.clicked() {
                     (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                 } else if response.hovered() {
-                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)))
                 } else {
                     (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                 };
@@ -171,7 +171,7 @@ pub fn show_context_menu(
                 let (bg_color, text_color, stroke) = if response.clicked() {
                     (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                 } else if response.hovered() {
-                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)))
                 } else {
                     (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                 };
@@ -201,7 +201,7 @@ pub fn show_context_menu(
                 let (bg_color, text_color, stroke) = if response.clicked() {
                     (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                 } else if response.hovered() {
-                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)))
                 } else {
                     (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                 };
@@ -232,7 +232,7 @@ pub fn show_context_menu(
                     let (bg_color, text_color, stroke) = if response.clicked() {
                         (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                     } else if response.hovered() {
-                        (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                        (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)))
                     } else {
                         (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                     };
@@ -243,13 +243,13 @@ pub fn show_context_menu(
                     }
 
                     if response.clicked() {
-                        action = Some(ContextMenuAction::ToggleFavorite);
+                        action = Some(ContextMenuAction::ToggleLike);
                     }
 
                     ui.painter().text(
                         rect.left_center() + egui::vec2(10.0, 0.0),
                         egui::Align2::LEFT_CENTER,
-                        "Toggle Favorite",
+                        "Like/Unlike",
                         egui::FontId::monospace(14.0),
                         text_color,
                     );
@@ -262,7 +262,7 @@ pub fn show_context_menu(
                     let (bg_color, text_color, stroke) = if response.clicked() {
                         (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Stroke::NONE)
                     } else if response.hovered() {
-                        (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::WHITE))
+                        (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)))
                     } else {
                         (egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE, egui::Stroke::NONE)
                     };

@@ -1,10 +1,11 @@
 use crate::config::Config;
-use crate::types::{Column, ClipboardOperation, Favorite, SidebarView, BrowsingMode, GroupedView};
+use crate::types::{Column, ClipboardOperation, Liked, SidebarView, BrowsingMode, GroupedView};
 use crate::audio::PlayerState;
 use crate::file_operations::SearchResult;
 use crate::ui::input::MetadataEditor;
 use crate::update::{UpdateChecker, UpdateStatus};
 
+use rodio::OutputStream;
 use rustfft::FftPlanner;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -26,6 +27,7 @@ pub struct WavesApp {
     pub root_dir: PathBuf,
     pub columns: Vec<Column>,
     pub player: Arc<Mutex<Option<PlayerState>>>,
+    pub audio_stream: Option<OutputStream>,
     pub pending_seek: Option<f32>,
     pub waveform_cache: HashMap<PathBuf, Vec<f32>>,
     pub waveform_receiver: Receiver<(PathBuf, Vec<f32>)>,
@@ -42,9 +44,9 @@ pub struct WavesApp {
     pub clipboard: Option<(PathBuf, ClipboardOperation)>,
     pub delete_confirm_prompt: Option<PathBuf>,
     pub delete_confirm_selected: usize,
-    pub favorites: Vec<Favorite>,
+    pub liked: Vec<Liked>,
     pub sidebar_view: SidebarView,
-    pub favorites_selected: usize,
+    pub liked_selected: usize,
     pub config: Config,
     pub file_to_play_on_start: Option<PathBuf>,
     pub default_folder_input: String,
@@ -109,10 +111,6 @@ pub struct SongLoadData {
 }
 
 impl WavesApp {
-    /// Creates a new instance of the WAVES application with a file open receiver.
-    ///
-    /// Initializes the file browser, audio player, and all application state.
-    /// Processes command-line arguments to determine starting directory and file to play.
     pub fn new_with_receiver(
         file_open_receiver: Receiver<PathBuf>,
         #[cfg(target_os = "macos")]
@@ -176,11 +174,20 @@ impl WavesApp {
             crate::startup_sound::play_startup_sound();
         }
 
+        let audio_stream = match rodio::OutputStreamBuilder::open_default_stream() {
+            Ok(stream) => Some(stream),
+            Err(e) => {
+                eprintln!("Failed to open audio stream: {}", e);
+                None
+            }
+        };
+
         let mut app = Self {
             current_dir: start_dir.clone(),
             root_dir: start_dir.clone(),
             columns: vec![],
             player: Arc::new(Mutex::new(None)),
+            audio_stream,
             pending_seek: None,
             waveform_cache: HashMap::new(),
             waveform_receiver,
@@ -197,9 +204,9 @@ impl WavesApp {
             clipboard: None,
             delete_confirm_prompt: None,
             delete_confirm_selected: 1,
-            favorites: crate::favorites::load(),
+            liked: crate::liked::load(),
             sidebar_view: SidebarView::FileBrowser,
-            favorites_selected: 0,
+            liked_selected: 0,
             config,
             file_to_play_on_start: file_to_play,
             default_folder_input,
@@ -252,10 +259,6 @@ impl WavesApp {
         app
     }
 
-    /// Retrieves the configured primary color for UI accent elements.
-    ///
-    /// Parses the hex color from configuration and returns an egui Color32.
-    /// Falls back to default purple color if parsing fails.
     pub fn primary_color(&self) -> egui::Color32 {
         let hex = self.config.primary_color.trim_start_matches('#');
         if hex.len() == 6 {
@@ -268,5 +271,10 @@ impl WavesApp {
             }
         }
         egui::Color32::from_rgb(150, 100, 255)
+    }
+
+    pub fn primary_color_with_alpha(&self, alpha: u8) -> egui::Color32 {
+        let base_color = self.primary_color();
+        egui::Color32::from_rgba_unmultiplied(base_color.r(), base_color.g(), base_color.b(), alpha)
     }
 }

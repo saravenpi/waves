@@ -184,30 +184,30 @@ impl WavesApp {
 
         let mid_magnitude: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
 
-        // Layer 1: Pulsating gradient rings with frequency-specific reactivity
+
         let ring_count = 100;
         for ring in 0..ring_count {
             let ring_progress = ring as f32 / ring_count as f32;
 
-            // Assign different frequency ranges to different rings
-            // Distribute 100 rings evenly across the full spectrum (25 per frequency range)
+
+
             let ring_magnitude = match ring {
-                // Rings 0-24: Sub-bass/Kick (0-4 bars) - 25 rings
+
                 0..=24 => {
                     let sub_bass: f32 = self.spectrum_bars.iter().take(4).sum::<f32>() / 4.0;
                     sub_bass
                 }
-                // Rings 25-49: Bass (4-12 bars) - 25 rings
+
                 25..=49 => {
                     let bass: f32 = self.spectrum_bars.iter().skip(4).take(8).sum::<f32>() / 8.0;
                     bass
                 }
-                // Rings 50-74: Mids/Vocals (16-32 bars) - 25 rings
+
                 50..=74 => {
                     let mids: f32 = self.spectrum_bars.iter().skip(16).take(16).sum::<f32>() / 16.0;
                     mids
                 }
-                // Rings 75-99: Treble/Hi-hats (48-64 bars) - 25 rings
+
                 _ => {
                     let treble: f32 = self.spectrum_bars.iter().skip(48).take(16).sum::<f32>() / 16.0;
                     treble
@@ -215,10 +215,10 @@ impl WavesApp {
             };
 
             let base_radius = max_radius * (0.2 + ring_progress * 0.7);
-            // Rings expand from 0 (center) when magnitude is 0, to full size at magnitude 1.0
-            let radius = base_radius * ring_magnitude * 2.0; // 0.0 to 2.0x expansion
 
-            // Create warped circle using audio-reactive deformation
+            let radius = base_radius * ring_magnitude * 2.0;
+
+
             let segments = 64;
             let points: Vec<egui::Pos2> = (0..segments)
                 .map(|i| {
@@ -238,7 +238,7 @@ impl WavesApp {
 
             let hue_shift = (time * 0.2 + ring_progress) % 1.0;
             let alpha = (200.0 * (1.0 - ring_progress * 0.5)) as u8;
-            // Pass magnitude for dynamic color intensity
+
             let color = self.gradient_color(primary_color, hue_shift, ring_magnitude, alpha);
 
             if points.len() > 1 {
@@ -482,27 +482,26 @@ impl WavesApp {
         }
     }
 
-    /// Helper function to create gradient colors based on primary color with magnitude-driven dynamics
     fn gradient_color(&self, base_color: egui::Color32, hue_shift: f32, magnitude: f32, alpha: u8) -> egui::Color32 {
-        // Extract base color components
+
         let base_r = base_color.r() as f32 / 255.0;
         let base_g = base_color.g() as f32 / 255.0;
         let base_b = base_color.b() as f32 / 255.0;
 
-        // Create dramatic color dynamics based on magnitude
-        // When magnitude is 0: very dark (20% brightness)
-        // When magnitude is 1.0: very bright (up to 150% brightness with boost)
-        let base_brightness = 0.2 + magnitude * 0.8; // Range: 0.2 to 1.0
 
-        // Add hue_shift for subtle variation across rings
-        let brightness_variation = 0.8 + hue_shift * 0.4; // Range: 0.8 to 1.2
 
-        // Boost bright colors even more for dramatic effect
+
+        let base_brightness = 0.2 + magnitude * 0.8;
+
+
+        let brightness_variation = 0.8 + hue_shift * 0.4;
+
+
         let brightness_boost = if magnitude > 0.5 { 1.0 + (magnitude - 0.5) * 1.0 } else { 1.0 };
 
         let final_intensity = (base_brightness * brightness_variation * brightness_boost).min(1.5);
 
-        // Apply intensity to base color to create gradient
+
         let final_r = (base_r * final_intensity * 255.0).min(255.0) as u8;
         let final_g = (base_g * final_intensity * 255.0).min(255.0) as u8;
         let final_b = (base_b * final_intensity * 255.0).min(255.0) as u8;

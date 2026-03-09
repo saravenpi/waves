@@ -9,14 +9,6 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use id3::TagLike;
 
-/// Extracts metadata from an audio file.
-///
-/// Supports MP3, M4A, FLAC, WAV, OGG, and Opus formats.
-/// Uses symphonia for most formats and custom WAV RIFF parsing for WAV files.
-/// # Arguments
-/// * `path` - Path to the audio file
-/// # Returns
-/// Tuple containing (title, artist, album, date, track_info, duration)
 pub fn extract_metadata(path: &Path) -> (String, Option<String>, Option<String>, Option<String>, Option<String>, Duration) {
     let default_result = || {
         let title = path.file_stem()
@@ -157,14 +149,6 @@ pub fn extract_metadata(path: &Path) -> (String, Option<String>, Option<String>,
     }
 }
 
-/// Extracts the total duration of an audio file.
-///
-/// Uses rodio decoder to determine track length.
-/// Falls back to calculating from sample count if total_duration is unavailable.
-/// # Arguments
-/// * `path` - Path to the audio file
-/// # Returns
-/// Duration of the track, defaults to 1 second if all extraction methods fail
 pub fn extract_duration(path: &Path) -> Duration {
     let result = std::panic::catch_unwind(|| {
         let file = match File::open(path) {
@@ -224,12 +208,6 @@ pub fn extract_duration(path: &Path) -> Duration {
     }
 }
 
-/// Formats a Duration as a human-readable time string.
-///
-/// # Arguments
-/// * `duration` - Duration to format
-/// # Returns
-/// String in format "M:SS"
 #[allow(dead_code)]
 pub fn format_duration(duration: Duration) -> String {
     let total_secs = duration.as_secs();
@@ -238,12 +216,6 @@ pub fn format_duration(duration: Duration) -> String {
     format!("{}:{:02}", minutes, seconds)
 }
 
-/// Reads metadata from WAV file RIFF LIST INFO chunks.
-///
-/// # Arguments
-/// * `path` - Path to the WAV file
-/// # Returns
-/// Result containing (title, artist, date) or error
 fn read_wav_metadata(path: &Path) -> Result<(Option<String>, Option<String>, Option<String>), Box<dyn std::error::Error>> {
     let mut file = File::open(path)?;
     let mut buffer = [0u8; 4];
@@ -327,15 +299,6 @@ fn read_wav_metadata(path: &Path) -> Result<(Option<String>, Option<String>, Opt
     Ok((title, artist, date))
 }
 
-/// Writes metadata to WAV file using RIFF LIST INFO chunks.
-///
-/// # Arguments
-/// * `path` - Path to the WAV file
-/// * `title` - Track title
-/// * `artist` - Artist name
-/// * `date` - Release date
-/// # Returns
-/// Result indicating success or error
 fn write_wav_metadata(
     path: &Path,
     title: &str,
@@ -452,18 +415,6 @@ fn write_wav_metadata(
     Ok(())
 }
 
-/// Saves metadata to an audio file.
-///
-/// Supports MP3, M4A, FLAC, WAV, OGG, and Opus formats.
-/// Optionally embeds album cover art from a specified image file.
-/// # Arguments
-/// * `path` - Path to the audio file
-/// * `title` - Track title
-/// * `artist` - Artist name
-/// * `date` - Release date/year
-/// * `cover_path` - Optional path to cover art image file
-/// # Returns
-/// Result indicating success or error with details
 pub fn save_audio_metadata(
     path: &Path,
     title: &str,

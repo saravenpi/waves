@@ -5,13 +5,13 @@ use std::time::{Duration, SystemTime};
 
 use crate::app::WavesApp;
 use crate::config::SidebarPosition;
-use crate::types::{FileEntry, Favorite, ClipboardOperation, SidebarView};
+use crate::types::{FileEntry, Liked, ClipboardOperation, SidebarView};
 use crate::ui::helpers::{ContextMenuAction, show_text_prompt, show_context_menu};
 use crate::ui::input::MetadataEditor;
 use crate::ui::components::{ConfirmDialog, IconButton, Select};
 use crate::utils::{format_duration, truncate_text};
 use crate::metadata::{extract_metadata, save_audio_metadata};
-use crate::favorites;
+use crate::liked;
 use crate::file_operations::SearchResult;
 
 impl eframe::App for WavesApp {
@@ -24,7 +24,7 @@ impl eframe::App for WavesApp {
                 self.startup_animation = false;
             } else {
                 egui::CentralPanel::default()
-                    .frame(egui::Frame::none().fill(egui::Color32::from_rgb(16, 16, 16)))
+                    .frame(egui::Frame::none().fill(egui::Color32::from_rgb(8, 8, 8)))
                     .show(ctx, |ui| {
                         ui.vertical_centered(|ui| {
                             let available_height = ui.available_height();
@@ -232,7 +232,7 @@ impl eframe::App for WavesApp {
                     }
                 } else {
                     match self.playback_context {
-                        SidebarView::Favorites => self.play_next_favorite(ctx),
+                        SidebarView::Liked => self.play_next_liked(ctx),
                         _ => self.play_next_song(ctx),
                     }
                 }
@@ -288,13 +288,13 @@ impl eframe::App for WavesApp {
                             }
                             egui::Key::ArrowLeft => {
                                 match self.playback_context {
-                                    SidebarView::Favorites => self.play_previous_favorite(ctx),
+                                    SidebarView::Liked => self.play_previous_liked(ctx),
                                     _ => self.play_previous_song(ctx),
                                 }
                             }
                             egui::Key::ArrowRight => {
                                 match self.playback_context {
-                                    SidebarView::Favorites => self.play_next_favorite(ctx),
+                                    SidebarView::Liked => self.play_next_liked(ctx),
                                     _ => self.play_next_song(ctx),
                                 }
                             }
@@ -321,7 +321,7 @@ impl eframe::App for WavesApp {
             });
 
             egui::CentralPanel::default()
-                .frame(egui::Frame::none().fill(egui::Color32::from_rgb(16, 16, 16)))
+                .frame(egui::Frame::none().fill(egui::Color32::from_rgb(8, 8, 8)))
                 .show(ctx, |ui| {
                     let fullscreen_rect = ui.max_rect();
                     self.render_animation(ui, fullscreen_rect);
@@ -376,7 +376,7 @@ impl eframe::App for WavesApp {
         let mut keys_to_handle = Vec::new();
         let mut dropped_files = Vec::new();
 
-        // Check if search bar has focus
+
         let search_has_focus = ctx.memory(|m| m.has_focus(egui::Id::new("main_search_bar")));
 
         ctx.input(|i| {
@@ -387,7 +387,7 @@ impl eframe::App for WavesApp {
                         continue;
                     }
 
-                    // Handle help modal with ? key (Shift+Slash)
+
                     if *key == egui::Key::Slash && modifiers.shift && !self.animation_fullscreen {
                         self.help_modal_open = !self.help_modal_open;
                     } else if *key == egui::Key::Slash && !modifiers.command && !modifiers.ctrl && !self.animation_fullscreen {
@@ -403,7 +403,7 @@ impl eframe::App for WavesApp {
             }
         });
 
-        // Consume Tab key to prevent egui from using it for focus navigation
+
         ctx.input_mut(|i| {
             i.consume_key(egui::Modifiers::NONE, egui::Key::Tab);
             i.consume_key(egui::Modifiers::SHIFT, egui::Key::Tab);
@@ -456,7 +456,7 @@ impl eframe::App for WavesApp {
 
         if self.config.show_status_bar {
             egui::TopBottomPanel::bottom("status")
-                .frame(egui::Frame::default().fill(egui::Color32::from_rgb(16, 16, 16)))
+                .frame(egui::Frame::default().fill(egui::Color32::from_rgb(8, 8, 8)))
                 .show(ctx, |ui| {
                     ui.separator();
                     let volume_percent = (self.volume * 100.0) as i32;
@@ -494,8 +494,8 @@ impl eframe::App for WavesApp {
             .default_width(self.config.sidebar_width)
             .width_range(min_width..=800.0)
             .frame(egui::Frame::default()
-                .fill(egui::Color32::from_black_alpha(240))
-                .stroke(egui::Stroke::new(1.0, egui::Color32::WHITE))
+                .fill(egui::Color32::from_rgb(16, 16, 16))
+                .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)))
                 .inner_margin(sidebar_margin));
 
         let sidebar_response = sidebar_panel_configured
@@ -521,13 +521,13 @@ impl eframe::App for WavesApp {
 
                         let sidebar_options = vec![
                             ("📁".to_string(), "Browser".to_string()),
-                            ("⭐".to_string(), "Favorites".to_string()),
+                            ("❤".to_string(), "Liked".to_string()),
                             ("⚙".to_string(), "Settings".to_string()),
                         ];
 
                         let sidebar_index = match self.sidebar_view {
                             SidebarView::FileBrowser => 0,
-                            SidebarView::Favorites => 1,
+                            SidebarView::Liked => 1,
                             SidebarView::Settings => 2,
                         };
 
@@ -547,7 +547,7 @@ impl eframe::App for WavesApp {
                         if let Some(idx) = clicked_sidebar_view {
                             match idx {
                                 0 => self.sidebar_view = SidebarView::FileBrowser,
-                                1 => self.sidebar_view = SidebarView::Favorites,
+                                1 => self.sidebar_view = SidebarView::Liked,
                                 2 => self.sidebar_view = SidebarView::Settings,
                                 _ => {}
                             };
@@ -609,7 +609,7 @@ impl eframe::App for WavesApp {
                                             ui.painter().rect_stroke(
                                                 back_response.rect,
                                                 0.0,
-                                                egui::Stroke::new(1.0, egui::Color32::WHITE),
+                                                egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                                             );
                                         }
 
@@ -741,12 +741,12 @@ impl eframe::App for WavesApp {
                                         };
 
                                         let display_name = truncate_text(&entry.name, max_chars.saturating_sub(4));
-                                        let is_favorited = self.favorites.iter().any(|f| f.path == entry.path);
-                                        let star = if is_favorited { "* " } else { "" };
+                                        let is_liked = self.liked.iter().any(|f| f.path == entry.path);
+                                        let heart = if is_liked { "❤ " } else { "" };
                                         let display_text = if icon.is_empty() {
-                                            format!(" {}{}", star, display_name)
+                                            format!(" {}{}", heart, display_name)
                                         } else {
-                                            format!(" {}{} {}", star, icon, display_name)
+                                            format!(" {}{} {}", heart, icon, display_name)
                                         };
 
                                         let is_in_clipboard = self.clipboard.as_ref()
@@ -754,21 +754,18 @@ impl eframe::App for WavesApp {
                                             .unwrap_or(false);
 
                                         let color = if is_selected {
-                                            let bg_color = if is_playing_or_parent {
-                                                self.primary_color()
-                                            } else {
-                                                egui::Color32::WHITE
-                                            };
+                                            let primary = self.primary_color();
                                             ui.painter().rect_filled(
                                                 rect,
                                                 0.0,
-                                                bg_color,
+                                                self.primary_color_with_alpha(51),
                                             );
-                                            if is_playing_or_parent {
-                                                egui::Color32::WHITE
-                                            } else {
-                                                egui::Color32::BLACK
-                                            }
+                                            ui.painter().rect_stroke(
+                                                rect,
+                                                0.0,
+                                                egui::Stroke::new(1.0, primary),
+                                            );
+                                            primary
                                         } else {
                                             if is_playing_or_parent {
                                                 ui.painter().rect_stroke(
@@ -780,7 +777,7 @@ impl eframe::App for WavesApp {
                                                 ui.painter().rect_stroke(
                                                     rect,
                                                     0.0,
-                                                    egui::Stroke::new(1.0, egui::Color32::WHITE),
+                                                    egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                                                 );
                                             }
 
@@ -792,8 +789,8 @@ impl eframe::App for WavesApp {
                                         };
 
                                         ui.painter().text(
-                                            rect.left_top() + egui::vec2(2.0, 1.0),
-                                            egui::Align2::LEFT_TOP,
+                                            rect.left_center() + egui::vec2(4.0, 0.0),
+                                            egui::Align2::LEFT_CENTER,
                                             &display_text,
                                             egui::FontId::monospace(18.0),
                                             color,
@@ -802,23 +799,23 @@ impl eframe::App for WavesApp {
                                 });
                         }
                             }
-                            SidebarView::Favorites => {
-                                let favorites_clone = self.favorites.clone();
-                                let selected = self.favorites_selected;
-                                let mut clicked_favorite: Option<usize> = None;
+                            SidebarView::Liked => {
+                                let liked_clone = self.liked.clone();
+                                let selected = self.liked_selected;
+                                let mut clicked_liked: Option<usize> = None;
                                 let mut context_menu_event: Option<(PathBuf, egui::Pos2)> = None;
 
-                                if favorites_clone.is_empty() {
+                                if liked_clone.is_empty() {
                                     ui.vertical_centered(|ui| {
                                         ui.add_space(50.0);
                                         ui.label(
-                                            egui::RichText::new("No favorites yet")
+                                            egui::RichText::new("No liked tracks yet")
                                                 .size(16.0)
                                                 .color(egui::Color32::from_rgb(150, 150, 150))
                                         );
                                         ui.add_space(10.0);
                                         ui.label(
-                                            egui::RichText::new("Press 'f' to add audio files to favorites")
+                                            egui::RichText::new("Press 'f' to like audio files")
                                                 .size(14.0)
                                                 .color(egui::Color32::from_rgb(120, 120, 120))
                                         );
@@ -829,12 +826,12 @@ impl eframe::App for WavesApp {
                                         .min_scrolled_height(list_height)
                                         .max_height(list_height)
                                         .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-                                        .id_salt("favorites_scroll")
+                                        .id_salt("liked_scroll")
                                         .show(ui, |ui| {
                                             let available_width = ui.available_width();
                                             let max_chars = ((available_width - 10.0) / 10.5) as usize;
 
-                                            for (idx, fav) in favorites_clone.iter().enumerate() {
+                                            for (idx, fav) in liked_clone.iter().enumerate() {
                                             let is_selected = idx == selected;
 
                                             let is_playing_or_parent = if let Some(playing_path) = &current_playing_file {
@@ -859,7 +856,7 @@ impl eframe::App for WavesApp {
                                             }
 
                                             if response.clicked() {
-                                                clicked_favorite = Some(idx);
+                                                clicked_liked = Some(idx);
                                             }
 
                                             if response.secondary_clicked() {
@@ -880,21 +877,18 @@ impl eframe::App for WavesApp {
                                             let display_text = format!(" * {} {}", icon, display_name);
 
                                             let color = if is_selected {
-                                                let bg_color = if is_playing_or_parent {
-                                                    self.primary_color()
-                                                } else {
-                                                    egui::Color32::WHITE
-                                                };
+                                                let primary = self.primary_color();
                                                 ui.painter().rect_filled(
                                                     rect,
                                                     0.0,
-                                                    bg_color,
+                                                    self.primary_color_with_alpha(51),
                                                 );
-                                                if is_playing_or_parent {
-                                                    egui::Color32::WHITE
-                                                } else {
-                                                    egui::Color32::BLACK
-                                                }
+                                                ui.painter().rect_stroke(
+                                                    rect,
+                                                    0.0,
+                                                    egui::Stroke::new(1.0, primary),
+                                                );
+                                                primary
                                             } else {
                                                 if is_playing_or_parent {
                                                     ui.painter().rect_stroke(
@@ -906,15 +900,15 @@ impl eframe::App for WavesApp {
                                                     ui.painter().rect_stroke(
                                                         rect,
                                                         0.0,
-                                                        egui::Stroke::new(1.0, egui::Color32::WHITE),
+                                                        egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                                                     );
                                                 }
                                                 egui::Color32::WHITE
                                             };
 
                                             ui.painter().text(
-                                                rect.left_top() + egui::vec2(2.0, 1.0),
-                                                egui::Align2::LEFT_TOP,
+                                                rect.left_center() + egui::vec2(4.0, 0.0),
+                                                egui::Align2::LEFT_CENTER,
                                                 &display_text,
                                                 egui::FontId::monospace(18.0),
                                                 color,
@@ -926,15 +920,15 @@ impl eframe::App for WavesApp {
                                         self.context_menu = Some((path, pos));
                                     }
 
-                                    if let Some(idx) = clicked_favorite {
-                                        self.favorites_selected = idx;
-                                        if let Some(fav) = favorites_clone.get(idx) {
+                                    if let Some(idx) = clicked_liked {
+                                        self.liked_selected = idx;
+                                        if let Some(fav) = liked_clone.get(idx) {
                                             if fav.is_dir {
                                                 self.current_dir = fav.path.clone();
                                                 self.update_columns_with_selection(Some(0));
                                                 self.sidebar_view = SidebarView::FileBrowser;
                                         } else {
-                                            self.playback_context = SidebarView::Favorites;
+                                            self.playback_context = SidebarView::Liked;
                                             self.play_file(&fav.path, ctx);
                                         }
                                     }
@@ -957,7 +951,7 @@ impl eframe::App for WavesApp {
                                         let is_focused = self.settings_focused_item == 0;
                                         let frame = if is_focused {
                                             egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                 .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
@@ -968,12 +962,12 @@ impl eframe::App for WavesApp {
                                             ui.add_space(5.0);
 
                                             let preset_colors = vec![
-                                                ("#9664FF", egui::Color32::from_rgb(150, 100, 255)),
-                                                ("#4A90E2", egui::Color32::from_rgb(74, 144, 226)),
-                                                ("#50E3C2", egui::Color32::from_rgb(80, 227, 194)),
-                                                ("#FF6B9D", egui::Color32::from_rgb(255, 107, 157)),
-                                                ("#FF8A00", egui::Color32::from_rgb(255, 138, 0)),
-                                                ("#FF4444", egui::Color32::from_rgb(255, 68, 68)),
+                                                ("#FD5D9C", egui::Color32::from_rgb(253, 93, 156)),
+                                                ("#653DA2", egui::Color32::from_rgb(101, 61, 162)),
+                                                ("#426EA2", egui::Color32::from_rgb(66, 110, 162)),
+                                                ("#AE6024", egui::Color32::from_rgb(174, 96, 36)),
+                                                ("#AE961F", egui::Color32::from_rgb(174, 150, 31)),
+                                                ("#3F9D79", egui::Color32::from_rgb(63, 157, 121)),
                                             ];
 
                                             ui.horizontal(|ui| {
@@ -1008,7 +1002,7 @@ impl eframe::App for WavesApp {
                                         let is_focused = self.settings_focused_item == 1;
                                         let frame = if is_focused {
                                             egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                 .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
@@ -1031,13 +1025,13 @@ impl eframe::App for WavesApp {
                                                         let _ = self.config.save();
                                                     }
 
-                                                    let bg_color = if self.config.show_status_bar {
-                                                        self.primary_color()
+                                                    let primary = self.primary_color();
+                                                    if self.config.show_status_bar {
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
-                                                        egui::Color32::from_rgb(60, 60, 60)
-                                                    };
-
-                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+                                                        ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
+                                                    }
 
                                                     let square_size = 20.0;
                                                     let square_x = if self.config.show_status_bar {
@@ -1058,7 +1052,7 @@ impl eframe::App for WavesApp {
                                         let is_focused = self.settings_focused_item == 2;
                                         let frame = if is_focused {
                                             egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                 .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
@@ -1082,13 +1076,13 @@ impl eframe::App for WavesApp {
                                                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Decorations(self.config.decorations));
                                                     }
 
-                                                    let bg_color = if self.config.decorations {
-                                                        self.primary_color()
+                                                    let primary = self.primary_color();
+                                                    if self.config.decorations {
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
-                                                        egui::Color32::from_rgb(60, 60, 60)
-                                                    };
-
-                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+                                                        ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
+                                                    }
 
                                                     let square_size = 20.0;
                                                     let square_x = if self.config.decorations {
@@ -1109,7 +1103,7 @@ impl eframe::App for WavesApp {
                                         let is_focused = self.settings_focused_item == 3;
                                         let frame = if is_focused {
                                             egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                 .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
@@ -1132,13 +1126,13 @@ impl eframe::App for WavesApp {
                                                         let _ = self.config.save();
                                                     }
 
-                                                    let bg_color = if self.config.animation {
-                                                        self.primary_color()
+                                                    let primary = self.primary_color();
+                                                    if self.config.animation {
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
-                                                        egui::Color32::from_rgb(60, 60, 60)
-                                                    };
-
-                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+                                                        ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
+                                                    }
 
                                                     let square_size = 20.0;
                                                     let square_x = if self.config.animation {
@@ -1160,7 +1154,7 @@ impl eframe::App for WavesApp {
                                             let is_focused = self.settings_focused_item == 4;
                                             let frame = if is_focused {
                                                 egui::Frame::default()
-                                                    .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                    .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                     .inner_margin(egui::Margin::same(8.0))
                                                     .rounding(0.0)
                                             } else {
@@ -1207,7 +1201,7 @@ impl eframe::App for WavesApp {
                                         let is_focused = self.settings_focused_item == 5;
                                         let frame = if is_focused {
                                             egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                 .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
@@ -1270,7 +1264,7 @@ impl eframe::App for WavesApp {
                                         let is_focused = self.settings_focused_item == 6;
                                         let frame = if is_focused {
                                             egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                 .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
@@ -1293,13 +1287,13 @@ impl eframe::App for WavesApp {
                                                         let _ = self.config.save();
                                                     }
 
-                                                    let bg_color = if self.config.ui_sounds_enabled {
-                                                        self.primary_color()
+                                                    let primary = self.primary_color();
+                                                    if self.config.ui_sounds_enabled {
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
-                                                        egui::Color32::from_rgb(60, 60, 60)
-                                                    };
-
-                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+                                                        ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
+                                                    }
 
                                                     let square_size = 20.0;
                                                     let square_x = if self.config.ui_sounds_enabled {
@@ -1321,7 +1315,7 @@ impl eframe::App for WavesApp {
                                             let is_focused = self.settings_focused_item == 7;
                                             let frame = if is_focused {
                                                 egui::Frame::default()
-                                                    .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                    .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                     .inner_margin(egui::Margin::same(8.0))
                                                     .rounding(0.0)
                                             } else {
@@ -1384,7 +1378,7 @@ impl eframe::App for WavesApp {
                                         let is_focused = self.settings_focused_item == 8;
                                         let frame = if is_focused {
                                             egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                 .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
@@ -1407,13 +1401,13 @@ impl eframe::App for WavesApp {
                                                         let _ = self.config.save();
                                                     }
 
-                                                    let bg_color = if self.config.startup_sound_enabled {
-                                                        self.primary_color()
+                                                    let primary = self.primary_color();
+                                                    if self.config.startup_sound_enabled {
+                                                        ui.painter().rect_filled(rect, 0.0, self.primary_color_with_alpha(51));
+                                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, primary));
                                                     } else {
-                                                        egui::Color32::from_rgb(60, 60, 60)
-                                                    };
-
-                                                    ui.painter().rect_filled(rect, 0.0, bg_color);
+                                                        ui.painter().rect_filled(rect, 0.0, egui::Color32::from_rgb(60, 60, 60));
+                                                    }
 
                                                     let square_size = 20.0;
                                                     let square_x = if self.config.startup_sound_enabled {
@@ -1445,7 +1439,7 @@ impl eframe::App for WavesApp {
                                         let is_focused = self.settings_focused_item == 9;
                                         let frame = if is_focused {
                                             egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                 .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
@@ -1517,7 +1511,7 @@ impl eframe::App for WavesApp {
                                         let is_focused = self.settings_focused_item == 10;
                                         let frame = if is_focused {
                                             egui::Frame::default()
-                                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
                                                 .inner_margin(egui::Margin::same(8.0))
                                                 .rounding(0.0)
                                         } else {
@@ -1634,7 +1628,7 @@ impl eframe::App for WavesApp {
 
         egui::CentralPanel::default()
             .frame(egui::Frame::default()
-                .fill(egui::Color32::from_rgb(16, 16, 16))
+                .fill(egui::Color32::from_rgb(8, 8, 8))
                 .inner_margin(egui::Margin { left: 0.0, right: 30.0, top: content_top_margin, bottom: 0.0 }))
             .show(ctx, |ui| {
                 let primary_color = self.primary_color();
@@ -1644,10 +1638,10 @@ impl eframe::App for WavesApp {
                     ui.horizontal(|ui| {
                         ui.add_space(10.0);
 
-                        // Calculate proper width for search bar with right padding
+
                         let search_bar_width = ui.available_width() - 10.0;
 
-                        // Custom styled search bar with border
+
                         let search_frame = egui::Frame {
                             fill: egui::Color32::from_rgb(20, 20, 20),
                             stroke: egui::Stroke::new(1.0, primary_color),
@@ -1658,20 +1652,20 @@ impl eframe::App for WavesApp {
 
                         search_frame.show(ui, |ui| {
                             let search_response = ui.add_sized(
-                                [search_bar_width - 16.0, 18.0], // Subtract inner margin
+                                [search_bar_width - 16.0, 18.0],
                                 egui::TextEdit::singleline(&mut self.search_query)
                                     .hint_text("🔍 Search files...")
                                     .frame(false)
                                     .id(egui::Id::new("main_search_bar"))
                             );
 
-                            // Handle focus when / was pressed
+
                             if self.search_just_opened {
                                 search_response.request_focus();
                                 self.search_just_opened = false;
                             }
 
-                            // Remove / character if it was typed when opening search
+
                             if self.search_query.starts_with('/') {
                                 self.search_query = self.search_query[1..].to_string();
                             }
@@ -1687,11 +1681,11 @@ impl eframe::App for WavesApp {
                         ui.add_space(10.0);
                     });
 
-                    // Display search results inline below the search bar
+
                     if !self.search_results.is_empty() {
                         ui.add_space(5.0);
 
-                        // Handle keyboard navigation when search has focus or results are showing
+
                         if search_has_focus || !self.search_results.is_empty() {
                             if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
                                 let max_display = self.search_results.len().min(5).saturating_sub(1);
@@ -1727,14 +1721,14 @@ impl eframe::App for WavesApp {
 
                             egui::Frame {
                                 fill: egui::Color32::from_rgb(15, 15, 15),
-                                stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
+                                stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                                 inner_margin: egui::Margin::same(8.0),
                                 ..Default::default()
                             }
                             .show(ui, |ui| {
                                 ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-                                // Only show top 5 results
+
                                 let display_results = self.search_results.iter().take(5);
 
                                 for (idx, result) in display_results.enumerate() {
@@ -1762,22 +1756,28 @@ impl eframe::App for WavesApp {
                                     }
 
                                     if is_selected {
+                                        let primary = self.primary_color();
                                         ui.painter().rect_filled(
                                             rect,
                                             0.0,
-                                            egui::Color32::WHITE
+                                            self.primary_color_with_alpha(51)
+                                        );
+                                        ui.painter().rect_stroke(
+                                            rect,
+                                            0.0,
+                                            egui::Stroke::new(1.0, primary),
                                         );
                                     }
 
                                     let text_color = if is_selected {
-                                        egui::Color32::BLACK
+                                        self.primary_color()
                                     } else {
                                         egui::Color32::from_rgb(200, 200, 200)
                                     };
 
                                     ui.painter().text(
-                                        rect.left_top() + egui::vec2(8.0, 6.0),
-                                        egui::Align2::LEFT_TOP,
+                                        rect.left_center() + egui::vec2(8.0, 0.0),
+                                        egui::Align2::LEFT_CENTER,
                                         &full_text,
                                         egui::FontId::proportional(13.0),
                                         text_color
@@ -1937,7 +1937,7 @@ impl eframe::App for WavesApp {
                                     next_response.surrender_focus();
                                     if next_response.hovered() {
                                         let rect = next_response.rect;
-                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
+                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)));
                                     }
                                     if next_response.is_pointer_button_down_on() {
                                         let rect = next_response.rect;
@@ -1961,7 +1961,7 @@ impl eframe::App for WavesApp {
                                     play_pause_response.surrender_focus();
                                     if play_pause_response.hovered() {
                                         let rect = play_pause_response.rect;
-                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
+                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)));
                                     }
                                     if play_pause_response.is_pointer_button_down_on() {
                                         let rect = play_pause_response.rect;
@@ -2012,7 +2012,7 @@ impl eframe::App for WavesApp {
                                     prev_response.surrender_focus();
                                     if prev_response.hovered() {
                                         let rect = prev_response.rect;
-                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::WHITE));
+                                        ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)));
                                     }
                                     if prev_response.is_pointer_button_down_on() {
                                         let rect = prev_response.rect;
@@ -2036,47 +2036,47 @@ impl eframe::App for WavesApp {
                                         .map(|state| state.current_file.clone());
 
                                     if let Some(ref file_path) = current_file {
-                                        let is_current_favorited = self.favorites.iter().any(|f| f.path == *file_path);
-                                        let fav_color = if is_current_favorited {
+                                        let is_current_liked = self.liked.iter().any(|f| f.path == *file_path);
+                                        let like_color = if is_current_liked {
                                             self.primary_color()
                                         } else {
                                             egui::Color32::WHITE
                                         };
-                                        let fav_icon = if is_current_favorited { "★" } else { "☆" };
-                                        let fav_response = IconButton::new(fav_icon).size(24.0).color(fav_color).show(ui);
-                                        fav_response.surrender_focus();
-                                        if fav_response.hovered() {
-                                            let rect = fav_response.rect;
-                                            ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, fav_color));
+                                        let like_icon = if is_current_liked { "❤" } else { "♡" };
+                                        let like_response = IconButton::new(like_icon).size(24.0).color(like_color).show(ui);
+                                        like_response.surrender_focus();
+                                        if like_response.hovered() {
+                                            let rect = like_response.rect;
+                                            ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, like_color));
                                         }
-                                        if fav_response.is_pointer_button_down_on() {
-                                            let rect = fav_response.rect;
-                                            ui.painter().rect_filled(rect, 0.0, fav_color);
+                                        if like_response.is_pointer_button_down_on() {
+                                            let rect = like_response.rect;
+                                            ui.painter().rect_filled(rect, 0.0, like_color);
                                             ui.painter().text(
                                                 rect.center(),
                                                 egui::Align2::CENTER_CENTER,
-                                                fav_icon,
+                                                like_icon,
                                                 egui::FontId::proportional(24.0),
                                                 egui::Color32::BLACK,
                                             );
                                         }
-                                        if fav_response.clicked() {
-                                            if is_current_favorited {
-                                                self.favorites.retain(|f| f.path != *file_path);
+                                        if like_response.clicked() {
+                                            if is_current_liked {
+                                                self.liked.retain(|f| f.path != *file_path);
                                             } else {
                                                 let name = file_path
                                                     .file_name()
                                                     .unwrap_or_default()
                                                     .to_string_lossy()
                                                     .to_string();
-                                                self.favorites.insert(0, Favorite {
+                                                self.liked.insert(0, Liked {
                                                     path: file_path.clone(),
                                                     name,
                                                     is_dir: false,
                                                     timestamp: std::time::SystemTime::now(),
                                                 });
                                             }
-                                            crate::favorites::save(&self.favorites);
+                                            crate::liked::save(&self.liked);
                                         }
                                     }
                                 });
@@ -2108,8 +2108,14 @@ impl eframe::App for WavesApp {
 
                             let painter = ui.painter();
 
-                            let bar_width = rect.width() / waveform.len() as f32;
-                            let max_height = rect.height() * 0.8;
+                            let skip_factor = 3;
+                            let visible_samples: Vec<_> = waveform.iter().enumerate()
+                                .filter(|(i, _)| i % skip_factor == 0)
+                                .map(|(_, &val)| val)
+                                .collect();
+
+                            let bar_width = rect.width() / visible_samples.len() as f32;
+                            let max_height = rect.height() * 0.9;
 
                             let current_pos = self.get_current_position().unwrap_or(Duration::from_secs(0));
                             let progress = if let Some(pending) = self.pending_seek {
@@ -2120,14 +2126,14 @@ impl eframe::App for WavesApp {
                                 0.0
                             };
 
-                            for (i, &amplitude) in waveform.iter().enumerate() {
+                            for (i, &amplitude) in visible_samples.iter().enumerate() {
                                 let x = rect.min.x + (i as f32 * bar_width);
-                                let adjusted_amplitude = (amplitude * 0.4).min(1.0);
+                                let adjusted_amplitude = (amplitude * 0.5).min(1.0);
                                 let height = adjusted_amplitude * max_height;
-                                let y_top = rect.center().y - height / 2.0;
-                                let y_bottom = rect.center().y + height / 2.0;
+                                let y_bottom = rect.max.y;
+                                let y_top = y_bottom - height;
 
-                                let bar_progress = i as f32 / waveform.len() as f32;
+                                let bar_progress = (i * skip_factor) as f32 / waveform.len() as f32;
                                 let color = if bar_progress <= progress {
                                     self.primary_color()
                                 } else {
@@ -2136,7 +2142,7 @@ impl eframe::App for WavesApp {
 
                                 painter.line_segment(
                                     [egui::pos2(x, y_top), egui::pos2(x, y_bottom)],
-                                    egui::Stroke::new(bar_width * 0.8, color),
+                                    egui::Stroke::new(bar_width * 0.9, color),
                                 );
                             }
 
@@ -2383,8 +2389,8 @@ impl eframe::App for WavesApp {
                 })
                 .show(ctx, |ui| {
                     egui::Frame {
-                        fill: egui::Color32::from_rgb(16, 16, 16),
-                        stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
+                        fill: egui::Color32::from_rgb(8, 8, 8),
+                        stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                         inner_margin: egui::Margin::same(20.0),
                         ..Default::default()
                     }
@@ -2627,8 +2633,8 @@ impl eframe::App for WavesApp {
                 })
                 .show(ctx, |ui| {
                     egui::Frame {
-                        fill: egui::Color32::from_rgb(16, 16, 16),
-                        stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
+                        fill: egui::Color32::from_rgb(8, 8, 8),
+                        stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                         inner_margin: egui::Margin::same(20.0),
                         ..Default::default()
                     }
@@ -2667,7 +2673,7 @@ impl eframe::App for WavesApp {
                                     ui.add_space(5.0);
                                     keybind(ui, "h/j/k/l", "Navigate left/down/up/right");
                                     keybind(ui, "ENTER", "Select directory or play file");
-                                    keybind(ui, "TAB", "Cycle views (Files → Favorites → Settings)");
+                                    keybind(ui, "TAB", "Cycle views (Files → Liked → Settings)");
                                     keybind(ui, "ESC", "Cancel clipboard operation");
 
                                     ui.add_space(10.0);
@@ -2690,7 +2696,7 @@ impl eframe::App for WavesApp {
                                     ui.add_space(10.0);
                                     ui.label(egui::RichText::new("Organization").size(16.0).color(egui::Color32::WHITE).strong());
                                     ui.add_space(5.0);
-                                    keybind(ui, "f", "Toggle favorite for selected item");
+                                    keybind(ui, "f", "Like/unlike selected item");
                                     keybind(ui, "m", "Edit metadata (audio files only)");
                                     keybind(ui, "/", "Search files");
 
@@ -2753,8 +2759,8 @@ impl eframe::App for WavesApp {
                 })
                 .show(ctx, |ui| {
                     egui::Frame {
-                        fill: egui::Color32::from_rgb(16, 16, 16),
-                        stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
+                        fill: egui::Color32::from_rgb(8, 8, 8),
+                        stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                         inner_margin: egui::Margin::same(12.0),
                         ..Default::default()
                     }
@@ -2810,15 +2816,15 @@ impl eframe::App for WavesApp {
                         }
 
                         egui::Frame {
-                            fill: egui::Color32::from_rgb(16, 16, 16),
-                            stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 80, 80)),
+                            fill: egui::Color32::from_rgb(8, 8, 8),
+                            stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                             inner_margin: egui::Margin::same(8.0),
                             ..Default::default()
                         }
                         .show(ui, |ui| {
                             ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
 
-                            // Only show top 5 results
+
                             let display_results = self.search_results.iter().take(5);
 
                             for (idx, result) in display_results.enumerate() {
@@ -2873,8 +2879,8 @@ impl eframe::App for WavesApp {
                                 };
 
                                 ui.painter().text(
-                                    rect.left_top() + egui::vec2(8.0, 8.0),
-                                    egui::Align2::LEFT_TOP,
+                                    rect.left_center() + egui::vec2(8.0, 0.0),
+                                    egui::Align2::LEFT_CENTER,
                                     &full_text,
                                     egui::FontId::monospace(16.0),
                                     text_color,
@@ -2936,25 +2942,25 @@ impl eframe::App for WavesApp {
                     ContextMenuAction::Cut => {
                         self.clipboard = Some((path.clone(), ClipboardOperation::Cut));
                     }
-                    ContextMenuAction::ToggleFavorite => {
-                        // Only allow favoriting audio files, not directories
+                    ContextMenuAction::ToggleLike => {
+
                         if is_dir {
-                            // Do nothing for directories
-                        } else if let Some(idx) = self.favorites.iter().position(|f| f.path == *path) {
-                            self.favorites.remove(idx);
-                            let _ = favorites::save(&self.favorites);
+
+                        } else if let Some(idx) = self.liked.iter().position(|f| f.path == *path) {
+                            self.liked.remove(idx);
+                            let _ = liked::save(&self.liked);
                         } else {
                             let name = path.file_name()
                                 .unwrap_or_default()
                                 .to_string_lossy()
                                 .to_string();
-                            self.favorites.push(Favorite {
+                            self.liked.push(Liked {
                                 path: path.clone(),
                                 name,
                                 is_dir: false,
                                 timestamp: SystemTime::now(),
                             });
-                            let _ = favorites::save(&self.favorites);
+                            let _ = liked::save(&self.liked);
                         }
                     }
                     ContextMenuAction::EditMetadata => {

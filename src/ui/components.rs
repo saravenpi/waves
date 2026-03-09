@@ -1,6 +1,5 @@
 use eframe::egui;
 
-/// Reusable UI components with consistent black and white, minimalistic, squared styling
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ButtonStyle {
@@ -39,12 +38,12 @@ impl Button {
         let (fill_color, text_color, stroke_color) = if self.selected {
             match self.style {
                 ButtonStyle::Primary => (primary_color, egui::Color32::WHITE, primary_color),
-                ButtonStyle::Secondary => (egui::Color32::WHITE, egui::Color32::from_rgb(16, 16, 16), egui::Color32::WHITE),
+                ButtonStyle::Secondary => (egui::Color32::from_rgb(64, 64, 64), egui::Color32::from_rgb(16, 16, 16), egui::Color32::from_rgb(64, 64, 64)),
             }
         } else {
             match self.style {
                 ButtonStyle::Primary => (egui::Color32::TRANSPARENT, primary_color, primary_color),
-                ButtonStyle::Secondary => (egui::Color32::TRANSPARENT, egui::Color32::from_rgb(150, 150, 150), egui::Color32::WHITE),
+                ButtonStyle::Secondary => (egui::Color32::TRANSPARENT, egui::Color32::from_rgb(150, 150, 150), egui::Color32::from_rgb(64, 64, 64)),
             }
         };
 
@@ -101,7 +100,7 @@ impl Modal {
             .show(ctx, |ui| {
                 egui::Frame {
                     fill: egui::Color32::from_rgb(16, 16, 16),
-                    stroke: egui::Stroke::new(1.0, egui::Color32::WHITE),
+                    stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)),
                     inner_margin: egui::Margin::same(20.0),
                     ..Default::default()
                 }
@@ -191,9 +190,15 @@ impl Select {
                 let is_selected = idx == self.selected_index;
 
                 let (bg_color, text_color, stroke) = if is_selected {
-                    (primary_color, egui::Color32::WHITE, egui::Stroke::new(1.0, primary_color))
+                    let primary_with_alpha = egui::Color32::from_rgba_unmultiplied(
+                        primary_color.r(),
+                        primary_color.g(),
+                        primary_color.b(),
+                        51
+                    );
+                    (primary_with_alpha, primary_color, egui::Stroke::new(1.0, primary_color))
                 } else {
-                    (egui::Color32::TRANSPARENT, egui::Color32::from_rgb(150, 150, 150), egui::Stroke::new(1.0, egui::Color32::WHITE))
+                    (egui::Color32::TRANSPARENT, egui::Color32::from_rgb(150, 150, 150), egui::Stroke::new(1.0, egui::Color32::from_rgb(64, 64, 64)))
                 };
 
                 let button_text = if icon.is_empty() {
@@ -202,11 +207,11 @@ impl Select {
                     format!("{} {}", icon, label)
                 };
 
-                let button = egui::Button::new(egui::RichText::new(&button_text).size(12.0).color(text_color))
+                let button = egui::Button::new(egui::RichText::new(&button_text).size(16.0).color(text_color))
                     .fill(bg_color)
                     .stroke(stroke)
                     .rounding(0.0)
-                    .min_size(egui::vec2(button_width, 28.0));
+                    .min_size(egui::vec2(button_width, 32.0));
 
                 if ui.add(button).clicked() {
                     clicked_index = Some(idx);

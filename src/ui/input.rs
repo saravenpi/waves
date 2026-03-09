@@ -24,8 +24,8 @@ pub trait NavigationHandler {
     fn get_columns_mut(&mut self) -> &mut Vec<crate::types::Column>;
     fn get_sidebar_view(&self) -> &crate::types::SidebarView;
     fn get_sidebar_view_mut(&mut self) -> &mut crate::types::SidebarView;
-    fn get_favorites(&self) -> &Vec<crate::types::Favorite>;
-    fn get_favorites_selected_mut(&mut self) -> &mut usize;
+    fn get_liked(&self) -> &Vec<crate::types::Liked>;
+    fn get_liked_selected_mut(&mut self) -> &mut usize;
     fn get_current_dir_mut(&mut self) -> &mut std::path::PathBuf;
     fn get_root_dir(&self) -> &std::path::PathBuf;
     fn update_columns_with_selection(&mut self, selection: Option<usize>);
@@ -38,7 +38,7 @@ pub trait NavigationHandler {
     fn set_rename_prompt(&mut self, prompt: Option<(std::path::PathBuf, String)>);
     fn get_clipboard_mut(&mut self) -> &mut Option<(std::path::PathBuf, crate::types::ClipboardOperation)>;
     fn set_delete_confirm_prompt(&mut self, prompt: Option<std::path::PathBuf>);
-    fn toggle_favorite(&mut self);
+    fn toggle_like(&mut self);
     fn paste_clipboard(&mut self);
     fn play_next_song(&mut self, ctx: &egui::Context);
     fn play_previous_song(&mut self, ctx: &egui::Context);
@@ -66,9 +66,9 @@ pub fn handle_navigation<T: NavigationHandler>(app: &mut T, key: egui::Key, ctx:
                         columns[0].selected += 1;
                     }
                 }
-                SidebarView::Favorites => {
-                    let favorites_len = app.get_favorites().len();
-                    let selected = app.get_favorites_selected_mut();
+                SidebarView::Liked => {
+                    let favorites_len = app.get_liked().len();
+                    let selected = app.get_liked_selected_mut();
                     if *selected < favorites_len.saturating_sub(1) {
                         *selected += 1;
                     }
@@ -84,8 +84,8 @@ pub fn handle_navigation<T: NavigationHandler>(app: &mut T, key: egui::Key, ctx:
                         columns[0].selected -= 1;
                     }
                 }
-                SidebarView::Favorites => {
-                    let selected = app.get_favorites_selected_mut();
+                SidebarView::Liked => {
+                    let selected = app.get_liked_selected_mut();
                     if *selected > 0 {
                         *selected -= 1;
                     }
@@ -107,9 +107,9 @@ pub fn handle_navigation<T: NavigationHandler>(app: &mut T, key: egui::Key, ctx:
                         }
                     }
                 }
-                SidebarView::Favorites => {
-                    let selected = *app.get_favorites_selected_mut();
-                    let fav = app.get_favorites().get(selected).cloned();
+                SidebarView::Liked => {
+                    let selected = *app.get_liked_selected_mut();
+                    let fav = app.get_liked().get(selected).cloned();
                     if let Some(fav) = fav {
                         if fav.is_dir {
                             *app.get_current_dir_mut() = fav.path.clone();
@@ -213,7 +213,7 @@ pub fn handle_navigation<T: NavigationHandler>(app: &mut T, key: egui::Key, ctx:
             }
         }
         egui::Key::F => {
-            app.toggle_favorite();
+            app.toggle_like();
         }
         egui::Key::M => {
             match app.get_sidebar_view() {
@@ -240,9 +240,9 @@ pub fn handle_navigation<T: NavigationHandler>(app: &mut T, key: egui::Key, ctx:
                         }
                     }
                 }
-                SidebarView::Favorites => {
-                    let selected = *app.get_favorites_selected_mut();
-                    let fav = app.get_favorites().get(selected).cloned();
+                SidebarView::Liked => {
+                    let selected = *app.get_liked_selected_mut();
+                    let fav = app.get_liked().get(selected).cloned();
                     if let Some(fav) = fav {
                         if !fav.is_dir {
                             let (title, artist, _album, date, _track, _duration) = extract_metadata(&fav.path);
@@ -269,8 +269,8 @@ pub fn handle_navigation<T: NavigationHandler>(app: &mut T, key: egui::Key, ctx:
         egui::Key::Tab => {
             let sidebar_view = app.get_sidebar_view_mut();
             *sidebar_view = match sidebar_view {
-                SidebarView::FileBrowser => SidebarView::Favorites,
-                SidebarView::Favorites => SidebarView::Settings,
+                SidebarView::FileBrowser => SidebarView::Liked,
+                SidebarView::Liked => SidebarView::Settings,
                 SidebarView::Settings => SidebarView::FileBrowser,
             };
         }
