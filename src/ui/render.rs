@@ -981,8 +981,9 @@ impl eframe::App for WavesApp {
                                         frame.show(ui, |ui| {
                                             ui.horizontal(|ui| {
                                                 ui.label(egui::RichText::new("Show Status Bar").size(16.0).color(egui::Color32::WHITE));
+                                                ui.add_space(ui.available_width() - 50.0);
 
-                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                ui.allocate_ui(egui::vec2(50.0, 25.0), |ui| {
                                                     let toggle_width = 50.0;
                                                     let toggle_height = 25.0;
                                                     let (rect, response) = ui.allocate_exact_size(
@@ -1032,7 +1033,9 @@ impl eframe::App for WavesApp {
                                             ui.horizontal(|ui| {
                                                 ui.label(egui::RichText::new("Show Title Bar").size(16.0).color(egui::Color32::WHITE));
 
-                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                ui.add_space(ui.available_width() - 50.0);
+
+                                                ui.allocate_ui(egui::vec2(50.0, 25.0), |ui| {
                                                     let toggle_width = 50.0;
                                                     let toggle_height = 25.0;
                                                     let (rect, response) = ui.allocate_exact_size(
@@ -1083,7 +1086,9 @@ impl eframe::App for WavesApp {
                                             ui.horizontal(|ui| {
                                                 ui.label(egui::RichText::new("Visual Animation").size(16.0).color(egui::Color32::WHITE));
 
-                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                ui.add_space(ui.available_width() - 50.0);
+
+                                                ui.allocate_ui(egui::vec2(50.0, 25.0), |ui| {
                                                     let toggle_width = 50.0;
                                                     let toggle_height = 25.0;
                                                     let (rect, response) = ui.allocate_exact_size(
@@ -1244,7 +1249,9 @@ impl eframe::App for WavesApp {
                                             ui.horizontal(|ui| {
                                                 ui.label(egui::RichText::new("UI Sounds").size(16.0).color(egui::Color32::WHITE));
 
-                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                ui.add_space(ui.available_width() - 50.0);
+
+                                                ui.allocate_ui(egui::vec2(50.0, 25.0), |ui| {
                                                     let toggle_width = 50.0;
                                                     let toggle_height = 25.0;
                                                     let (rect, response) = ui.allocate_exact_size(
@@ -1358,7 +1365,9 @@ impl eframe::App for WavesApp {
                                             ui.horizontal(|ui| {
                                                 ui.label(egui::RichText::new("Startup Sound").size(16.0).color(egui::Color32::WHITE));
 
-                                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                ui.add_space(ui.available_width() - 50.0);
+
+                                                ui.allocate_ui(egui::vec2(50.0, 25.0), |ui| {
                                                     let toggle_width = 50.0;
                                                     let toggle_height = 25.0;
                                                     let (rect, response) = ui.allocate_exact_size(
@@ -1849,7 +1858,9 @@ impl eframe::App for WavesApp {
                                     }
                                 });
 
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                ui.add_space(ui.available_width() - 50.0);
+
+                                ui.allocate_ui(egui::vec2(50.0, 25.0), |ui| {
                                     ui.add_space(20.0);
 
                                     let next_response = IconButton::new("⏭").show(ui);
@@ -2099,7 +2110,9 @@ impl eframe::App for WavesApp {
                                         .monospace()
                                 );
 
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                ui.add_space(ui.available_width() - 50.0);
+
+                                ui.allocate_ui(egui::vec2(50.0, 25.0), |ui| {
                                     ui.add_space(20.0);
                                     ui.label(
                                         egui::RichText::new(format_duration(duration))
