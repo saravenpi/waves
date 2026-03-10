@@ -190,11 +190,12 @@ impl Select {
                 let is_selected = idx == self.selected_index;
 
                 let (bg_color, text_color, stroke) = if is_selected {
+                    let alpha_20_percent = (255.0 * 0.20) as u8;
                     let primary_with_alpha = egui::Color32::from_rgba_unmultiplied(
                         primary_color.r(),
                         primary_color.g(),
                         primary_color.b(),
-                        51
+                        alpha_20_percent
                     );
                     (primary_with_alpha, primary_color, egui::Stroke::new(1.0, primary_color))
                 } else {

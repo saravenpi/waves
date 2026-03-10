@@ -5,48 +5,41 @@ use crate::app::WavesApp;
 
 pub fn render_search_bar(app: &mut WavesApp, ui: &mut egui::Ui, _ctx: &egui::Context) {
     if !app.animation_fullscreen {
-        ui.add_space(10.0);
-        ui.horizontal(|ui| {
-            ui.add_space(10.0);
+        let search_bar_width = ui.available_width();
+        let primary_color = app.primary_color();
 
-            let search_bar_width = ui.available_width() - 10.0;
-            let primary_color = app.primary_color();
+        let search_frame = egui::Frame {
+            fill: egui::Color32::from_rgb(20, 20, 20),
+            stroke: egui::Stroke::new(1.0, primary_color),
+            inner_margin: egui::Margin::symmetric(8.0, 6.0),
+            rounding: egui::Rounding::same(0.0),
+            ..Default::default()
+        };
 
-            let search_frame = egui::Frame {
-                fill: egui::Color32::from_rgb(20, 20, 20),
-                stroke: egui::Stroke::new(1.0, primary_color),
-                inner_margin: egui::Margin::symmetric(8.0, 6.0),
-                rounding: egui::Rounding::same(0.0),
-                ..Default::default()
-            };
+        search_frame.show(ui, |ui| {
+            let search_response = ui.add_sized(
+                [search_bar_width - 16.0, 18.0],
+                egui::TextEdit::singleline(&mut app.search_query)
+                    .hint_text("🔍 Search files...")
+                    .frame(false)
+                    .id(egui::Id::new("main_search_bar"))
+            );
 
-            search_frame.show(ui, |ui| {
-                let search_response = ui.add_sized(
-                    [search_bar_width - 16.0, 18.0],
-                    egui::TextEdit::singleline(&mut app.search_query)
-                        .hint_text("🔍 Search files...")
-                        .frame(false)
-                        .id(egui::Id::new("main_search_bar"))
-                );
+            if app.search_just_opened {
+                search_response.request_focus();
+                app.search_just_opened = false;
+            }
 
-                if app.search_just_opened {
-                    search_response.request_focus();
-                    app.search_just_opened = false;
-                }
+            if app.search_query.starts_with('/') {
+                app.search_query = app.search_query[1..].to_string();
+            }
 
-                if app.search_query.starts_with('/') {
-                    app.search_query = app.search_query[1..].to_string();
-                }
-
-                if !app.search_query.is_empty() {
-                    app.perform_search();
-                } else {
-                    app.search_results.clear();
-                    app.search_selected = 0;
-                }
-            });
-
-            ui.add_space(10.0);
+            if !app.search_query.is_empty() {
+                app.perform_search();
+            } else {
+                app.search_results.clear();
+                app.search_selected = 0;
+            }
         });
     }
 }

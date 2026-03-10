@@ -22,7 +22,7 @@ pub fn render_playback_controls(
 
     if has_player {
         let total_height = ui.available_height();
-        let bottom_panel_height = 200.0_f32.min(total_height * 0.35);
+        let bottom_panel_height = 230.0_f32.min(total_height * 0.35);
         let separator_space = 20.0;
         let spectrum_height = (total_height - bottom_panel_height - separator_space).max(100.0);
 
@@ -90,7 +90,7 @@ pub fn render_playback_controls(
 
         ui.horizontal(|ui| {
             let available_width = ui.available_width();
-            let cover_size = 140.0_f32.min(available_width * 0.2).max(100.0);
+            let cover_size = 180.0_f32.min(available_width * 0.2).max(100.0);
             let volume_slider_width = 40.0;
             let total_padding = 60.0;
 
@@ -99,12 +99,12 @@ pub fn render_playback_controls(
 
             ui.add_space(20.0);
 
-            {
+            ui.vertical(|ui| {
                 let player = app.player.lock().unwrap();
                 if let Some(state) = player.as_ref() {
                     render_album_cover(ui, &state.album_cover, cover_size);
                 }
-            }
+            });
 
             ui.add_space(20.0);
 
@@ -112,18 +112,7 @@ pub fn render_playback_controls(
                 ui.set_width(content_width.max(min_content_width));
 
                 ui.horizontal(|ui| {
-                    ui.add_space(5.0);
-
-                    render_like_button(app, ui);
-
-                    ui.add_space(15.0);
-
-                    let buttons_width = 180.0;
-                    let title_width = ui.available_width() - buttons_width - 10.0;
-
                     ui.vertical(|ui| {
-                        ui.set_width(title_width.max(200.0));
-
                         ui.label(
                             egui::RichText::new(&title)
                                 .size(24.0)
@@ -139,9 +128,7 @@ pub fn render_playback_controls(
                         }
                     });
 
-                    ui.add_space(10.0);
-
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                         render_playback_buttons(app, ui, is_paused, ctx);
                     });
                 });
@@ -161,13 +148,13 @@ pub fn render_playback_controls(
                 ui.add_space(10.0);
 
                 render_time_display(app, ui, duration);
-
-                ui.add_space(5.0);
             });
 
             ui.add_space(10.0);
 
-            render_volume_slider(app, ui);
+            ui.vertical(|ui| {
+                render_volume_slider(app, ui);
+            });
 
             ui.add_space(20.0);
         });
@@ -221,6 +208,8 @@ fn render_playback_buttons(app: &mut WavesApp, ui: &mut egui::Ui, is_paused: boo
         render_play_pause_button(app, ui, is_paused);
         ui.add_space(6.0);
         render_previous_button(app, ui, ctx);
+        ui.add_space(10.0);
+        render_like_button(app, ui);
     });
 }
 
@@ -293,7 +282,6 @@ fn render_loop_button(app: &mut WavesApp, ui: &mut egui::Ui) {
     };
 
     let loop_response = IconButton::new("🔁")
-        .size(24.0)
         .color(loop_color)
         .show(ui);
     loop_response.surrender_focus();
@@ -310,7 +298,7 @@ fn render_loop_button(app: &mut WavesApp, ui: &mut egui::Ui) {
             rect.center(),
             egui::Align2::CENTER_CENTER,
             "🔁",
-            egui::FontId::proportional(24.0),
+            egui::FontId::proportional(28.0),
             egui::Color32::BLACK,
         );
     }
@@ -365,7 +353,6 @@ fn render_like_button(app: &mut WavesApp, ui: &mut egui::Ui) {
         let like_icon = if is_current_liked { "❤" } else { "♡" };
 
         let like_response = IconButton::new(like_icon)
-            .size(24.0)
             .color(like_color)
             .show(ui);
         like_response.surrender_focus();
@@ -382,7 +369,7 @@ fn render_like_button(app: &mut WavesApp, ui: &mut egui::Ui) {
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
                 like_icon,
-                egui::FontId::proportional(24.0),
+                egui::FontId::proportional(28.0),
                 egui::Color32::BLACK,
             );
         }
@@ -416,7 +403,7 @@ fn render_waveform(
     ctx: &egui::Context,
 ) {
     let waveform_width = (ui.available_width() - 10.0).max(200.0);
-    let waveform_height = 60.0;
+    let waveform_height = 80.0;
 
     let (rect, response) = ui.allocate_exact_size(
         egui::vec2(waveform_width, waveform_height),
@@ -446,7 +433,7 @@ fn render_waveform(
         .collect();
 
     let bar_width = rect.width() / visible_samples.len() as f32;
-    let max_height = rect.height() * 0.9;
+    let max_height = rect.height();
 
     let current_pos = app.get_current_position().unwrap_or(Duration::from_secs(0));
     let progress = if let Some(pending) = app.pending_seek {
@@ -459,16 +446,16 @@ fn render_waveform(
 
     for (i, &amplitude) in visible_samples.iter().enumerate() {
         let x = rect.min.x + (i as f32 * bar_width);
-        let adjusted_amplitude = (amplitude.powf(1.5) * 0.35).min(1.0);
-        let height = adjusted_amplitude * max_height;
+        let adjusted_amplitude = amplitude.powf(1.3);
+        let height = (adjusted_amplitude * max_height).min(max_height);
         let y_bottom = rect.max.y;
         let y_top = y_bottom - height;
 
         let bar_progress = (i * skip_factor) as f32 / waveform.len() as f32;
         let color = if bar_progress <= progress {
-            app.primary_color()
+            egui::Color32::from_rgb(0x87, 0x87, 0x87)
         } else {
-            egui::Color32::from_rgb(60, 60, 60)
+            egui::Color32::from_rgb(0x40, 0x40, 0x40)
         };
 
         painter.line_segment(
@@ -478,11 +465,7 @@ fn render_waveform(
     }
 
     let progress_x = rect.min.x + progress * rect.width();
-    let marker_color = if app.pending_seek.is_some() {
-        egui::Color32::from_rgb(255, 200, 100)
-    } else {
-        egui::Color32::WHITE
-    };
+    let marker_color = app.primary_color();
     painter.vline(
         progress_x,
         rect.min.y..=rect.max.y,
@@ -499,7 +482,7 @@ fn render_time_display(app: &WavesApp, ui: &mut egui::Ui, duration: Duration) {
         };
 
         let time_color = if app.pending_seek.is_some() {
-            egui::Color32::from_rgb(255, 200, 100)
+            app.primary_color()
         } else {
             egui::Color32::WHITE
         };
@@ -525,7 +508,7 @@ fn render_time_display(app: &WavesApp, ui: &mut egui::Ui, duration: Duration) {
 fn render_volume_slider(app: &mut WavesApp, ui: &mut egui::Ui) {
     ui.vertical_centered(|ui| {
         let slider_width = 6.0;
-        let slider_height = 120.0;
+        let slider_height = 160.0;
 
         let (rect, response) = ui.allocate_exact_size(
             egui::vec2(slider_width, slider_height),

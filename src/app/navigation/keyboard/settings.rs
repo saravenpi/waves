@@ -107,8 +107,7 @@ impl WavesApp {
     pub(super) fn cycle_animation_type_forward(&mut self) -> bool {
         use crate::config::AnimationType;
         self.config.animation_type = match self.config.animation_type {
-            AnimationType::Spectrum => AnimationType::WaveformPulse,
-            AnimationType::WaveformPulse => AnimationType::CircleSpectrum,
+            AnimationType::Spectrum => AnimationType::CircleSpectrum,
             AnimationType::CircleSpectrum => AnimationType::Agbe,
             AnimationType::Agbe => AnimationType::Dots,
             AnimationType::Dots => AnimationType::Spectrum,
@@ -123,8 +122,7 @@ impl WavesApp {
             AnimationType::Spectrum => AnimationType::Dots,
             AnimationType::Dots => AnimationType::Agbe,
             AnimationType::Agbe => AnimationType::CircleSpectrum,
-            AnimationType::CircleSpectrum => AnimationType::WaveformPulse,
-            AnimationType::WaveformPulse => AnimationType::Spectrum,
+            AnimationType::CircleSpectrum => AnimationType::Spectrum,
         };
         let _ = self.config.save();
         true

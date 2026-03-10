@@ -86,12 +86,12 @@ impl eframe::App for WavesApp {
         let content_top_margin = 40.0;
 
         #[cfg(not(target_os = "macos"))]
-        let content_top_margin = 0.0;
+        let content_top_margin = 10.0;
 
         egui::CentralPanel::default()
             .frame(egui::Frame::default()
-                .fill(egui::Color32::from_rgb(8, 8, 8))
-                .inner_margin(egui::Margin { left: 0.0, right: 30.0, top: content_top_margin, bottom: 0.0 }))
+                .fill(egui::Color32::from_rgb(16, 16, 16))
+                .inner_margin(egui::Margin { left: 30.0, right: 30.0, top: content_top_margin, bottom: 0.0 }))
             .show(ctx, |ui| {
                 crate::ui::search_ui::render_search_bar(self, ui, ctx);
                 crate::ui::search_ui::render_search_results(self, ui, ctx, search_has_focus);
@@ -237,6 +237,17 @@ fn poll_async_receivers(app: &mut WavesApp, ctx: &egui::Context) {
                 }
             }
         }
+    }
+
+    while let Ok((path, duration)) = app.duration_receiver.try_recv() {
+        if app.duration_cache.len() >= MAX_CACHE_SIZE {
+            if let Some(oldest_key) = app.duration_cache.keys().next().cloned() {
+                app.duration_cache.remove(&oldest_key);
+            }
+        }
+        app.duration_cache.insert(path.clone(), duration);
+        app.duration_extraction_in_progress.remove(&path);
+        ctx.request_repaint();
     }
 
     let mut cache_updates = Vec::new();

@@ -17,14 +17,11 @@ mod macos;
 mod sound;
 
 use app::WavesApp;
-use config::Config;
 use eframe::egui;
 use std::sync::mpsc;
 
 fn main() -> eframe::Result {
     sound::init_sound_system();
-
-    let config = Config::load();
 
     let (file_open_sender, file_open_receiver) = mpsc::channel();
 
@@ -92,23 +89,31 @@ fn main() -> eframe::Result {
         Box::new(move |cc| {
             let mut fonts = egui::FontDefinitions::default();
 
-            if let Some(custom_font_path) = config.custom_font.as_ref() {
-                let expanded = shellexpand::tilde(custom_font_path).to_string();
+            let undefined_font_paths = vec![
+                "~/Library/Fonts/undefined-medium.otf",
+                "/Library/Fonts/undefined-medium.otf",
+                "/System/Library/Fonts/undefined-medium.otf",
+            ];
+
+            for font_path in &undefined_font_paths {
+                let expanded = shellexpand::tilde(font_path).to_string();
                 if let Ok(font_data) = std::fs::read(&expanded) {
                     fonts.font_data.insert(
-                        "custom".to_owned(),
+                        "undefined".to_owned(),
                         std::sync::Arc::new(egui::FontData::from_owned(font_data)),
                     );
 
                     fonts.families
                         .get_mut(&egui::FontFamily::Monospace)
                         .unwrap()
-                        .insert(0, "custom".to_owned());
+                        .insert(0, "undefined".to_owned());
 
                     fonts.families
                         .get_mut(&egui::FontFamily::Proportional)
                         .unwrap()
-                        .insert(0, "custom".to_owned());
+                        .insert(0, "undefined".to_owned());
+
+                    break;
                 }
             }
 
@@ -164,6 +169,10 @@ fn main() -> eframe::Result {
                 egui::TextStyle::Button,
                 egui::FontId::proportional(18.0),
             );
+            style.animation_time = 0.0;
+            style.visuals.widgets.hovered.expansion = 0.0;
+            style.visuals.widgets.active.expansion = 0.0;
+            style.visuals.widgets.open.expansion = 0.0;
             cc.egui_ctx.set_style(style);
 
             cc.egui_ctx.options_mut(|o| {

@@ -2,21 +2,21 @@
 
 set -e
 
-echo "🎵 Installing WAVES Music Player for macOS..."
+echo "🎵 Installing Waves Music Player for macOS..."
 
 if [ ! -f "target/release/waves" ]; then
     echo "❌ Release binary not found. Building now..."
     cargo build --release
 fi
 
-APP_NAME="WAVES.app"
+APP_NAME="Waves.app"
 APP_PATH="/Applications/$APP_NAME"
 BUNDLE_PATH="macos-bundle"
 
 echo "📦 Creating application bundle..."
 
 if [ -d "$APP_PATH" ]; then
-    echo "🗑️  Removing existing WAVES.app..."
+    echo "🗑️  Removing existing Waves.app..."
     rm -rf "$APP_PATH"
 fi
 
@@ -44,7 +44,7 @@ else
     <key>CFBundleIdentifier</key>
     <string>com.waves.player</string>
     <key>CFBundleName</key>
-    <string>WAVES</string>
+    <string>Waves</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -100,13 +100,13 @@ if [ -f "$BUNDLE_PATH/AppIcon.icns" ]; then
     cp "$BUNDLE_PATH/AppIcon.icns" "$APP_PATH/Contents/Resources/AppIcon.icns"
 fi
 
-echo "✅ WAVES has been installed to /Applications/WAVES.app"
+echo "✅ Waves has been installed to /Applications/Waves.app"
 echo ""
 echo "🎉 Installation complete!"
 echo ""
 echo "You can now:"
-echo "  • Launch WAVES from your Applications folder"
-echo "  • Open audio files directly with WAVES from Finder"
-echo "  • Find WAVES in Spotlight search"
+echo "  • Launch Waves from your Applications folder"
+echo "  • Open audio files directly with Waves from Finder"
+echo "  • Find Waves in Spotlight search"
 echo ""
 echo "Enjoy your music! 🎶"

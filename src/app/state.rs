@@ -6,7 +6,7 @@ use crate::ui::input::MetadataEditor;
 
 use rodio::OutputStream;
 use rustfft::FftPlanner;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -34,6 +34,10 @@ pub struct WavesApp {
     pub album_cover_cache: HashMap<PathBuf, egui::TextureHandle>,
     pub album_cover_receiver: Receiver<(PathBuf, egui::ColorImage)>,
     pub album_cover_sender: Sender<(PathBuf, egui::ColorImage)>,
+    pub duration_cache: HashMap<PathBuf, std::time::Duration>,
+    pub duration_receiver: Receiver<(PathBuf, std::time::Duration)>,
+    pub duration_sender: Sender<(PathBuf, std::time::Duration)>,
+    pub duration_extraction_in_progress: std::collections::HashSet<PathBuf>,
     pub last_selected_file: Option<PathBuf>,
     pub spectrum_bars: Vec<f32>,
     pub fft_planner: FftPlanner<f32>,
@@ -88,6 +92,7 @@ pub struct WavesApp {
     pub dots_initialized: bool,
     pub hann_window: Vec<f32>,
     pub freq_bands: Vec<(f32, f32)>,
+    pub default_folder_edit: String,
 }
 
 pub enum CacheResult {
@@ -161,7 +166,16 @@ impl WavesApp {
 
         let (waveform_sender, waveform_receiver) = channel();
         let (album_cover_sender, album_cover_receiver) = channel();
+        let (duration_sender, duration_receiver) = channel();
         let (song_data_tx, song_data_rx) = channel();
+
+        let default_folder_edit = config.default_folder.clone().unwrap_or_else(|| {
+            if let Some(music_dir) = dirs::audio_dir() {
+                music_dir.to_string_lossy().to_string()
+            } else {
+                "~/Music".to_string()
+            }
+        });
 
         if config.startup_sound_enabled {
             crate::sound::play_startup_sound();
@@ -188,6 +202,10 @@ impl WavesApp {
             album_cover_cache: HashMap::new(),
             album_cover_receiver,
             album_cover_sender,
+            duration_cache: HashMap::new(),
+            duration_receiver,
+            duration_sender,
+            duration_extraction_in_progress: HashSet::new(),
             last_selected_file: None,
             spectrum_bars: vec![0.0; 64],
             fft_planner: FftPlanner::new(),
@@ -200,6 +218,7 @@ impl WavesApp {
             liked: crate::liked::load(),
             sidebar_view: SidebarView::FileBrowser,
             liked_selected: 0,
+            default_folder_edit,
             config,
             file_to_play_on_start: file_to_play,
             search_open: false,

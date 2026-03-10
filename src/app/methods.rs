@@ -18,6 +18,7 @@ impl WavesApp {
         };
 
         self.columns.clear();
+        self.duration_extraction_in_progress.clear();
 
         if self.cache_root_dir.as_ref() != Some(&self.root_dir) {
             self.audio_files_cache = None;

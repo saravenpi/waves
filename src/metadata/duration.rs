@@ -10,7 +10,7 @@ pub fn extract_duration(path: &Path) -> Duration {
             Ok(f) => f,
             Err(e) => {
                 eprintln!("Failed to open file for duration extraction {:?}: {}", path, e);
-                return Duration::from_secs(1);
+                return Duration::from_secs(0);
             }
         };
 
@@ -25,14 +25,14 @@ pub fn extract_duration(path: &Path) -> Duration {
                 Ok(s) => s,
                 Err(e) => {
                     eprintln!("Failed to decode M4A file for duration extraction {:?}: {}", path, e);
-                    return Duration::from_secs(1);
+                    return Duration::from_secs(0);
                 }
             },
             _ => match Decoder::new(buf_reader) {
                 Ok(s) => s,
                 Err(e) => {
                     eprintln!("Failed to decode file for duration extraction {:?}: {}", path, e);
-                    return Duration::from_secs(1);
+                    return Duration::from_secs(0);
                 }
             },
         };
@@ -50,7 +50,7 @@ pub fn extract_duration(path: &Path) -> Duration {
             let duration_secs = total_samples / (sample_rate as u64 * channels as u64);
             Duration::from_secs(duration_secs)
         } else {
-            Duration::from_secs(1)
+            Duration::from_secs(0)
         }
     });
 
@@ -58,7 +58,7 @@ pub fn extract_duration(path: &Path) -> Duration {
         Ok(duration) => duration,
         Err(_) => {
             eprintln!("Panic while extracting duration from {:?}", path);
-            Duration::from_secs(1)
+            Duration::from_secs(0)
         }
     }
 }

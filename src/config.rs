@@ -19,7 +19,6 @@ impl Default for SidebarPosition {
 #[serde(rename_all = "snake_case")]
 pub enum AnimationType {
     Spectrum,
-    WaveformPulse,
     CircleSpectrum,
     Agbe,
     Dots,
@@ -49,8 +48,6 @@ pub struct Config {
     pub show_status_bar: bool,
     #[serde(default = "default_primary_color")]
     pub primary_color: String,
-    #[serde(default)]
-    pub custom_font: Option<String>,
     #[serde(default = "default_sidebar_width")]
     pub sidebar_width: f32,
     #[serde(default = "default_true")]
@@ -88,7 +85,6 @@ impl Default for Config {
             default_folder: None,
             show_status_bar: true,
             primary_color: default_primary_color(),
-            custom_font: None,
             sidebar_width: default_sidebar_width(),
             ui_sounds_enabled: true,
             ui_sounds_volume: default_ui_sounds_volume(),

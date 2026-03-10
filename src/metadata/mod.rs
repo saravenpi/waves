@@ -1,4 +1,4 @@
-mod duration;
+pub mod duration;
 mod extraction;
 mod wav;
 mod mp3;

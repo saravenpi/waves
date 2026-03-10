@@ -5,7 +5,7 @@ use crate::app::WavesApp;
 use crate::config::SidebarPosition;
 use crate::types::{FileEntry, SidebarView};
 use crate::ui::components::{IconButton, Select};
-use crate::utils::truncate_text;
+use crate::utils::{truncate_text, format_duration_option};
 
 pub struct SidebarEvents {
     pub clicked_entry: Option<(usize, FileEntry)>,
@@ -255,7 +255,7 @@ struct ListItemConfig<'a> {
     is_selected: bool,
     is_liked: bool,
     is_in_clipboard: bool,
-    show_liked_prefix: bool,
+    duration: &'a Option<std::time::Duration>,
 }
 
 fn render_list_item(
@@ -290,18 +290,31 @@ fn render_list_item(
         ""
     } else if config.is_dir {
         "📁"
+    } else if config.is_liked {
+        "❤"
     } else {
         "🎵"
     };
 
-    let display_name = truncate_text(config.name, max_chars.saturating_sub(4));
-    let heart = if config.is_liked && !config.show_liked_prefix { "❤ " } else { "" };
-    let liked_prefix = if config.show_liked_prefix { "* " } else { "" };
+    let duration_text = if !config.is_dir {
+        format_duration_option(*config.duration)
+    } else {
+        String::new()
+    };
+
+    let duration_width = if !duration_text.is_empty() {
+        duration_text.len() + 2
+    } else {
+        0
+    };
+
+    let available_chars_for_name = max_chars.saturating_sub(4 + duration_width);
+    let display_name = truncate_text(config.name, available_chars_for_name);
 
     let display_text = if icon.is_empty() {
-        format!(" {}{}{}", liked_prefix, heart, display_name)
+        format!(" {}", display_name)
     } else {
-        format!(" {}{}{} {}", liked_prefix, heart, icon, display_name)
+        format!(" {} {}", icon, display_name)
     };
 
     let color = if config.is_selected {
@@ -346,84 +359,120 @@ fn render_list_item(
         color,
     );
 
+    if !duration_text.is_empty() {
+        ui.painter().text(
+            rect.right_center() - egui::vec2(10.0, 0.0),
+            egui::Align2::RIGHT_CENTER,
+            &duration_text,
+            egui::FontId::monospace(14.0),
+            egui::Color32::from_rgb(120, 120, 120),
+        );
+    }
+
     color
 }
 
 fn render_file_browser(
-    app: &WavesApp,
+    app: &mut WavesApp,
     ui: &mut egui::Ui,
     list_height: f32,
     current_playing_file: &Option<PathBuf>,
     events: &mut SidebarEvents,
 ) {
     if !app.columns.is_empty() {
-        let column = &app.columns[0];
+        let mut files_to_extract = Vec::new();
 
-        let scroll_area = egui::ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .min_scrolled_height(list_height)
-            .max_height(list_height)
-            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-            .id_salt("file_browser_scroll");
+        {
+            let column = &app.columns[0];
 
-        scroll_area.show(ui, |ui| {
-            let available_width = ui.available_width();
-            let max_chars = ((available_width - 10.0) / 10.5) as usize;
+            let scroll_area = egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .min_scrolled_height(list_height)
+                .max_height(list_height)
+                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+                .id_salt("file_browser_scroll");
 
-            if !column.entries.is_empty() && (column.entries[0].name.starts_with("Loading ")) {
-                let loading_text = &column.entries[0].name;
-                ui.add_space(50.0);
-                crate::ui::spinner::square_spinner_with_text(ui, loading_text, app.primary_color());
-                return;
-            }
+            scroll_area.show(ui, |ui| {
+                let available_width = ui.available_width();
+                let max_chars = ((available_width - 10.0) / 10.5) as usize;
 
-            for (idx, entry) in column.entries.iter().enumerate() {
-                let is_selected = idx == column.selected;
-
-                let (rect, response) = ui.allocate_exact_size(
-                    egui::vec2(available_width, 25.0),
-                    egui::Sense::click()
-                );
-
-                if is_selected && app.scroll_to_selection {
-                    ui.scroll_to_rect(rect, Some(egui::Align::Center));
+                if !column.entries.is_empty() && (column.entries[0].name.starts_with("Loading ")) {
+                    let loading_text = &column.entries[0].name;
+                    ui.add_space(50.0);
+                    crate::ui::spinner::square_spinner_with_text(ui, loading_text, app.primary_color());
+                    return;
                 }
 
-                if response.clicked() {
-                    events.clicked_entry = Some((idx, entry.clone()));
-                }
+                for (idx, entry) in column.entries.iter().enumerate() {
+                    let is_selected = idx == column.selected;
 
-                if response.secondary_clicked() {
-                    if let Some(pos) = response.interact_pointer_pos() {
-                        events.context_menu_event = Some((entry.path.clone(), pos));
+                    let (rect, response) = ui.allocate_exact_size(
+                        egui::vec2(available_width, 25.0),
+                        egui::Sense::click()
+                    );
+
+                    if is_selected && app.scroll_to_selection {
+                        ui.scroll_to_rect(rect, Some(egui::Align::Center));
                     }
+
+                    if response.clicked() {
+                        events.clicked_entry = Some((idx, entry.clone()));
+                    }
+
+                    if response.secondary_clicked() {
+                        if let Some(pos) = response.interact_pointer_pos() {
+                            events.context_menu_event = Some((entry.path.clone(), pos));
+                        }
+                    }
+
+                    let is_liked = app.liked.iter().any(|f| f.path == entry.path);
+                    let is_in_clipboard = app.clipboard.as_ref()
+                        .map(|(path, _)| path == &entry.path)
+                        .unwrap_or(false);
+
+                    let duration = if !entry.is_dir {
+                        if let Some(cached_duration) = app.duration_cache.get(&entry.path) {
+                            Some(*cached_duration)
+                        } else if !app.duration_extraction_in_progress.contains(&entry.path) {
+                            files_to_extract.push(entry.path.clone());
+                            None
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    render_list_item(
+                        ui,
+                        rect,
+                        &response,
+                        ListItemConfig {
+                            path: &entry.path,
+                            name: &entry.name,
+                            is_dir: entry.is_dir,
+                            is_selected,
+                            is_liked,
+                            is_in_clipboard,
+                            duration: &duration,
+                        },
+                        current_playing_file,
+                        app.primary_color(),
+                        app.primary_color_with_alpha(13),
+                        max_chars,
+                    );
                 }
+            });
+        }
 
-                let is_liked = app.liked.iter().any(|f| f.path == entry.path);
-                let is_in_clipboard = app.clipboard.as_ref()
-                    .map(|(path, _)| path == &entry.path)
-                    .unwrap_or(false);
-
-                render_list_item(
-                    ui,
-                    rect,
-                    &response,
-                    ListItemConfig {
-                        path: &entry.path,
-                        name: &entry.name,
-                        is_dir: entry.is_dir,
-                        is_selected,
-                        is_liked,
-                        is_in_clipboard,
-                        show_liked_prefix: false,
-                    },
-                    current_playing_file,
-                    app.primary_color(),
-                    app.primary_color_with_alpha(13),
-                    max_chars,
-                );
-            }
-        });
+        for path in files_to_extract {
+            app.duration_extraction_in_progress.insert(path.clone());
+            let sender = app.duration_sender.clone();
+            std::thread::spawn(move || {
+                let duration = crate::metadata::duration::extract_duration(&path);
+                let _ = sender.send((path, duration));
+            });
+        }
     }
 }
 
@@ -502,7 +551,7 @@ fn render_liked(
                             is_selected,
                             is_liked: true,
                             is_in_clipboard: false,
-                            show_liked_prefix: true,
+                            duration: &None,
                         },
                         current_playing_file,
                         app.primary_color(),

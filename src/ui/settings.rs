@@ -50,6 +50,9 @@ pub fn render_settings(app: &mut WavesApp, ui: &mut egui::Ui, list_height: f32) 
             ui.separator();
             ui.add_space(10.0);
 
+            render_default_folder_setting(app, ui);
+            ui.add_space(10.0);
+
             render_sidebar_position_setting(app, ui);
             ui.add_space(20.0);
         });
@@ -210,22 +213,34 @@ fn render_primary_color_setting(app: &mut WavesApp, ui: &mut egui::Ui) {
             ("#3F9D79", egui::Color32::from_rgb(63, 157, 121)),
         ];
 
+        let available_width = ui.available_width();
+        let num_colors = preset_colors.len() as f32;
+        let spacing = ui.spacing().item_spacing.x;
+        let total_spacing = spacing * (num_colors - 1.0);
+        let color_width = (available_width - total_spacing) / num_colors;
+        let color_height = 30.0;
+
         ui.horizontal(|ui| {
             for (hex, color) in preset_colors {
-                let size = egui::vec2(30.0, 30.0);
+                let size = egui::vec2(color_width, color_height);
                 let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
 
                 let is_selected = app.config.primary_color.to_lowercase() == hex.to_lowercase();
 
-                ui.painter().rect_filled(rect, 0.0, color);
+                let fill_color = egui::Color32::from_rgba_unmultiplied(
+                    color.r(),
+                    color.g(),
+                    color.b(),
+                    51,
+                );
+                ui.painter().rect_filled(rect, 0.0, fill_color);
 
-                if is_selected {
-                    ui.painter().rect_stroke(
-                        rect.expand(3.0),
-                        0.0,
-                        egui::Stroke::new(2.0, color),
-                    );
-                }
+                let border_width = if is_selected { 2.5 } else { 1.5 };
+                ui.painter().rect_stroke(
+                    rect,
+                    0.0,
+                    egui::Stroke::new(border_width, color),
+                );
 
                 if response.clicked() {
                     app.config.primary_color = hex.to_string();
@@ -360,7 +375,6 @@ fn render_animation_style_selector(app: &mut WavesApp, ui: &mut egui::Ui) {
 
         let animation_types = vec![
             (AnimationType::Spectrum, "Spectrum"),
-            (AnimationType::WaveformPulse, "Waveform"),
             (AnimationType::CircleSpectrum, "Circle"),
             (AnimationType::Agbe, "Agbe"),
             (AnimationType::Dots, "Dots"),
@@ -374,6 +388,77 @@ fn render_animation_style_selector(app: &mut WavesApp, ui: &mut egui::Ui) {
 
                 if ui.add(egui::Button::new(egui::RichText::new(label).color(text_color)).fill(bg_color)).clicked() {
                     app.config.animation_type = anim_type;
+                    let _ = app.config.save();
+                }
+            }
+        });
+    });
+}
+
+fn render_default_folder_setting(app: &mut WavesApp, ui: &mut egui::Ui) {
+    let is_focused = app.settings_focused_item == 10;
+    let frame = if is_focused {
+        egui::Frame::default()
+            .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(64, 64, 64)))
+            .inner_margin(egui::Margin::same(4.0))
+            .rounding(0.0)
+    } else {
+        egui::Frame::default().inner_margin(egui::Margin::same(4.0))
+    };
+
+    frame.show(ui, |ui| {
+        ui.label(egui::RichText::new("Default Music Folder").size(16.0).color(egui::Color32::WHITE));
+        ui.add_space(5.0);
+
+        let current_config_value = app.config.default_folder.clone().unwrap_or_else(|| {
+            if let Some(music_dir) = dirs::audio_dir() {
+                music_dir.to_string_lossy().to_string()
+            } else {
+                "~/Music".to_string()
+            }
+        });
+
+        if !ui.memory(|mem| mem.has_focus(ui.next_auto_id())) && app.default_folder_edit != current_config_value {
+            app.default_folder_edit = current_config_value;
+        }
+
+        ui.horizontal(|ui| {
+            let available_width = ui.available_width();
+            let button_width = 80.0;
+            let text_width = available_width - button_width - ui.spacing().item_spacing.x;
+
+            let text_edit = egui::TextEdit::singleline(&mut app.default_folder_edit)
+                .font(egui::TextStyle::Body)
+                .desired_width(text_width)
+                .text_color(egui::Color32::WHITE);
+
+            let response = ui.add(text_edit);
+
+            if response.changed() || response.lost_focus() {
+                let new_value = if app.default_folder_edit.trim().is_empty() {
+                    None
+                } else {
+                    Some(app.default_folder_edit.trim().to_string())
+                };
+
+                if new_value != app.config.default_folder {
+                    app.config.default_folder = new_value;
+                    let _ = app.config.save();
+                }
+            }
+
+            let button = egui::Button::new(egui::RichText::new("Browse...").color(egui::Color32::WHITE))
+                .fill(egui::Color32::from_rgb(60, 60, 60))
+                .min_size(egui::vec2(button_width, 0.0));
+
+            if ui.add(button).clicked() {
+                if let Some(folder) = rfd::FileDialog::new()
+                    .set_directory(&app.default_folder_edit)
+                    .pick_folder()
+                {
+                    let folder_path = folder.to_string_lossy().to_string();
+                    app.default_folder_edit = folder_path.clone();
+                    app.config.default_folder = Some(folder_path);
                     let _ = app.config.save();
                 }
             }
