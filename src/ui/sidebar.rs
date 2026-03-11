@@ -431,7 +431,7 @@ fn render_file_browser(
                         .unwrap_or(false);
 
                     let duration = if !entry.is_dir {
-                        if let Some(cached_duration) = app.duration_cache.get(&entry.path) {
+                        if let Some(cached_duration) = app.duration_cache.peek(&entry.path) {
                             Some(*cached_duration)
                         } else if !app.duration_extraction_in_progress.contains(&entry.path) {
                             files_to_extract.push(entry.path.clone());
@@ -468,7 +468,7 @@ fn render_file_browser(
         for path in files_to_extract {
             app.duration_extraction_in_progress.insert(path.clone());
             let sender = app.duration_sender.clone();
-            std::thread::spawn(move || {
+            app.duration_thread_pool.execute(move || {
                 let duration = crate::metadata::duration::extract_duration(&path);
                 let _ = sender.send((path, duration));
             });
