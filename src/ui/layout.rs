@@ -173,15 +173,7 @@ fn poll_menu_action_receiver(app: &mut WavesApp, ctx: &egui::Context) {
 }
 
 fn poll_async_receivers(app: &mut WavesApp, ctx: &egui::Context) {
-    const MAX_CACHE_SIZE: usize = 50;
-
     while let Ok((path, waveform)) = app.waveform_receiver.try_recv() {
-        if app.waveform_cache.len() >= MAX_CACHE_SIZE {
-            if let Some(oldest_key) = app.waveform_cache.keys().next().cloned() {
-                app.waveform_cache.remove(&oldest_key);
-            }
-        }
-
         let should_update_player = {
             if let Ok(player) = app.player.lock() {
                 player.as_ref().map(|state| state.current_file == path).unwrap_or(false)
@@ -190,7 +182,7 @@ fn poll_async_receivers(app: &mut WavesApp, ctx: &egui::Context) {
             }
         };
 
-        app.waveform_cache.insert(path.clone(), waveform);
+        app.waveform_cache.put(path.clone(), waveform);
 
         if should_update_player {
             if let Ok(mut player) = app.player.lock() {
@@ -205,12 +197,6 @@ fn poll_async_receivers(app: &mut WavesApp, ctx: &egui::Context) {
     }
 
     while let Ok((path, color_image)) = app.album_cover_receiver.try_recv() {
-        if app.album_cover_cache.len() >= MAX_CACHE_SIZE {
-            if let Some(oldest_key) = app.album_cover_cache.keys().next().cloned() {
-                app.album_cover_cache.remove(&oldest_key);
-            }
-        }
-
         let texture = ctx.load_texture(
             format!("album_cover_{}", path.display()),
             color_image,
@@ -225,7 +211,7 @@ fn poll_async_receivers(app: &mut WavesApp, ctx: &egui::Context) {
             }
         };
 
-        app.album_cover_cache.insert(path.clone(), texture);
+        app.album_cover_cache.put(path.clone(), texture);
 
         if should_update_player {
             if let Ok(mut player) = app.player.lock() {
@@ -239,15 +225,27 @@ fn poll_async_receivers(app: &mut WavesApp, ctx: &egui::Context) {
         }
     }
 
+    let mut received_any = false;
     while let Ok((path, duration)) = app.duration_receiver.try_recv() {
-        if app.duration_cache.len() >= MAX_CACHE_SIZE {
-            if let Some(oldest_key) = app.duration_cache.keys().next().cloned() {
-                app.duration_cache.remove(&oldest_key);
-            }
-        }
-        app.duration_cache.insert(path.clone(), duration);
+        app.duration_cache.put(path.clone(), duration);
         app.duration_extraction_in_progress.remove(&path);
-        ctx.request_repaint();
+        received_any = true;
+    }
+
+    if received_any {
+        app.pending_repaint = true;
+    }
+
+    if app.pending_repaint {
+        let elapsed = app.last_repaint_request.elapsed().as_millis();
+        if elapsed >= 50 {
+            ctx.request_repaint();
+            app.pending_repaint = false;
+            app.last_repaint_request = std::time::Instant::now();
+        } else {
+            let remaining = 50 - elapsed as u64;
+            ctx.request_repaint_after(std::time::Duration::from_millis(remaining));
+        }
     }
 
     let mut cache_updates = Vec::new();

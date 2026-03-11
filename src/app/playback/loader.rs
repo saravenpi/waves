@@ -149,7 +149,7 @@ impl WavesApp {
 
             self.dots_initialized = false;
 
-            if !self.waveform_cache.contains_key(&data.path) {
+            if !self.waveform_cache.contains(&data.path) {
                 let path_clone = data.path.clone();
                 let sender = self.waveform_sender.clone();
                 std::thread::spawn(move || {

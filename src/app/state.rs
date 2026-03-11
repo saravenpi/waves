@@ -6,7 +6,10 @@ use crate::ui::input::MetadataEditor;
 
 use rodio::OutputStream;
 use rustfft::FftPlanner;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+use lru::LruCache;
+use std::num::NonZeroUsize;
+use threadpool::ThreadPool;
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -28,16 +31,19 @@ pub struct WavesApp {
     pub player: Arc<Mutex<Option<PlayerState>>>,
     pub audio_stream: Option<OutputStream>,
     pub pending_seek: Option<f32>,
-    pub waveform_cache: HashMap<PathBuf, Vec<f32>>,
+    pub waveform_cache: LruCache<PathBuf, Vec<f32>>,
     pub waveform_receiver: Receiver<(PathBuf, Vec<f32>)>,
     pub waveform_sender: Sender<(PathBuf, Vec<f32>)>,
-    pub album_cover_cache: HashMap<PathBuf, egui::TextureHandle>,
+    pub album_cover_cache: LruCache<PathBuf, egui::TextureHandle>,
     pub album_cover_receiver: Receiver<(PathBuf, egui::ColorImage)>,
     pub album_cover_sender: Sender<(PathBuf, egui::ColorImage)>,
-    pub duration_cache: HashMap<PathBuf, std::time::Duration>,
+    pub duration_cache: LruCache<PathBuf, std::time::Duration>,
     pub duration_receiver: Receiver<(PathBuf, std::time::Duration)>,
     pub duration_sender: Sender<(PathBuf, std::time::Duration)>,
     pub duration_extraction_in_progress: std::collections::HashSet<PathBuf>,
+    pub duration_thread_pool: ThreadPool,
+    pub pending_repaint: bool,
+    pub last_repaint_request: std::time::Instant,
     pub last_selected_file: Option<PathBuf>,
     pub spectrum_bars: Vec<f32>,
     pub fft_planner: FftPlanner<f32>,
@@ -196,16 +202,19 @@ impl WavesApp {
             player: Arc::new(Mutex::new(None)),
             audio_stream,
             pending_seek: None,
-            waveform_cache: HashMap::new(),
+            waveform_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
             waveform_receiver,
             waveform_sender,
-            album_cover_cache: HashMap::new(),
+            album_cover_cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
             album_cover_receiver,
             album_cover_sender,
-            duration_cache: HashMap::new(),
+            duration_cache: LruCache::new(NonZeroUsize::new(500).unwrap()),
             duration_receiver,
             duration_sender,
             duration_extraction_in_progress: HashSet::new(),
+            duration_thread_pool: ThreadPool::new(4),
+            pending_repaint: false,
+            last_repaint_request: std::time::Instant::now(),
             last_selected_file: None,
             spectrum_bars: vec![0.0; 64],
             fft_planner: FftPlanner::new(),

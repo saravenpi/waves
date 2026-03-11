@@ -160,7 +160,7 @@ pub fn handle_metadata_editor(app: &mut WavesApp, ctx: &egui::Context) {
                 editor.error_message = Some(err);
             }
         } else {
-            app.album_cover_cache.remove(&file_path);
+            app.album_cover_cache.pop(&file_path);
             app.last_selected_file = None;
 
             if let Ok(mut player) = app.player.lock() {
