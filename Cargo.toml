@@ -1,6 +1,6 @@
 [package]
 name = "waves"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2024"
 
 [dependencies]
@@ -22,6 +22,8 @@ dirs = "5.0"
 winit = "0.30"
 rand = "0.8"
 mimalloc = { version = "0.1", default-features = false }
+lru = "0.12"
+threadpool = "1.8"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.7"
