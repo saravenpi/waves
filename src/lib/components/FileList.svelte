@@ -10,7 +10,9 @@
 		cut,
 		paste,
 		startNewFolder,
-		openEditor
+		openEditor,
+		refreshDir,
+		revealCwd
 	} from '$lib/state.svelte.js';
 	import Icon from './Icon.svelte';
 	import ContextMenu from './ContextMenu.svelte';
@@ -20,6 +22,7 @@
 
 	function openMenu(e, entry, i) {
 		e.preventDefault();
+		e.stopPropagation();
 		app.selected = i;
 
 		const folders = app.browseMode === 'folders';
@@ -52,6 +55,21 @@
 		menu = { x: e.clientX, y: e.clientY, items };
 	}
 
+	function openEmptyMenu(e) {
+		e.preventDefault();
+		const folders = app.browseMode === 'folders';
+		const browser = app.view === 'browser';
+		const items = [];
+		if (folders && browser) {
+			items.push({ label: 'New folder', icon: 'folder', action: startNewFolder });
+			if (app.clip) items.push({ label: 'Paste', action: paste });
+			items.push({ separator: true });
+		}
+		items.push({ label: 'Refresh', action: refreshDir });
+		if (folders && browser) items.push({ label: 'Reveal in Finder', action: revealCwd });
+		menu = { x: e.clientX, y: e.clientY, items };
+	}
+
 	function fmt(s) {
 		const total = Math.floor(s || 0);
 		const m = Math.floor(total / 60);
@@ -75,9 +93,11 @@
 </script>
 
 {#if app.entries.length === 0}
-	<div class="empty">{app.view === 'liked' ? 'No music' : 'Empty'}</div>
+	<div class="empty" oncontextmenu={openEmptyMenu} role="presentation">
+		{app.view === 'liked' ? 'No music' : 'Empty'}
+	</div>
 {:else}
-	<div class="list" bind:this={scroller}>
+	<div class="list" bind:this={scroller} oncontextmenu={openEmptyMenu} role="presentation">
 		{#each app.entries as entry, i (entry.path)}
 			<div
 				class="row {rowClass(entry, i)}"

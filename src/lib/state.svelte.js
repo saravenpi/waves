@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { openPath } from '@tauri-apps/plugin-opener';
 import { engine } from './audio.js';
 import { sounds } from './sounds.js';
 import { Spectrum, BANDS } from './spectrum.js';
@@ -120,6 +121,14 @@ export function startWatching() {
 		clearTimeout(watchTimer);
 		watchTimer = setTimeout(refreshCurrentDir, 250);
 	});
+}
+
+export function refreshDir() {
+	refreshCurrentDir();
+}
+
+export function revealCwd() {
+	openPath(app.cwd).catch(() => {});
 }
 
 function uniqueGroups(key) {
