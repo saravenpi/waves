@@ -49,6 +49,7 @@ export const app = $state({
 	clip: null,
 	prompt: null,
 	confirm: null,
+	fullscreenViz: false,
 	settingsSelected: 0,
 	config: {
 		animation: true,
@@ -346,13 +347,19 @@ export function toggleLoop() {
 	engine.setLoop(app.loop);
 }
 
-export async function toggleFavorite() {
-	const e = app.entries[app.selected];
-	if (!e || e.is_dir) return;
-	app.liked = await invoke('toggle_liked', { path: e.path, name: e.name, isDir: false });
+export async function toggleFavoritePath(path, name) {
+	if (!path) return;
+	const display = name || path.split('/').filter(Boolean).pop() || path;
+	app.liked = await invoke('toggle_liked', { path, name: display, isDir: false });
 	app.likedPaths = new Set(app.liked.map((l) => l.path));
 	if (app.view === 'liked') rebuildEntries();
 	sounds.cursor();
+}
+
+export async function toggleFavorite() {
+	const e = app.entries[app.selected];
+	if (!e || e.is_dir) return;
+	await toggleFavoritePath(e.path, e.name);
 }
 
 export function isLiked(path) {

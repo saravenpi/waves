@@ -9,6 +9,7 @@
 	import MetadataEditor from '$lib/components/MetadataEditor.svelte';
 	import Prompt from '$lib/components/Prompt.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import Spectrum from '$lib/visualizers/Spectrum.svelte';
 	import CircleSpectrum from '$lib/visualizers/CircleSpectrum.svelte';
 	import Agbe from '$lib/visualizers/Agbe.svelte';
@@ -24,6 +25,23 @@
 	let Viz = $derived(VIZ[app.config.animation_type] || Spectrum);
 
 	let dragging = false;
+
+	let fsControls = $state(true);
+	let fsTimer;
+	function fsMove() {
+		fsControls = true;
+		clearTimeout(fsTimer);
+		fsTimer = setTimeout(() => (fsControls = false), 4000);
+	}
+	function enterFs() {
+		app.fullscreenViz = true;
+		fsMove();
+	}
+	function exitFs() {
+		app.fullscreenViz = false;
+		clearTimeout(fsTimer);
+		fsControls = true;
+	}
 
 	function startResize(e) {
 		dragging = true;
@@ -86,6 +104,9 @@
 				{#if app.config.animation}
 					<Viz bars={spectrumBars} color={app.config.primary_color} playing={app.playing} />
 				{/if}
+				<button class="fs-enter" onclick={enterFs} aria-label="Fullscreen animation" title="Fullscreen">
+					<Icon name="scale" size={16} />
+				</button>
 			</div>
 			<NowPlaying />
 		</section>
@@ -99,6 +120,15 @@
 	<Prompt />
 	<Confirm />
 </div>
+
+{#if app.fullscreenViz}
+	<div class="fs-overlay" class:idle={!fsControls} onmousemove={fsMove} role="presentation">
+		<Viz bars={spectrumBars} color={app.config.primary_color} playing={app.playing} />
+		<button class="fs-close" onclick={exitFs} aria-label="Exit fullscreen">
+			<Icon name="close" size={20} />
+		</button>
+	</div>
+{/if}
 
 <style>
 	.app {
@@ -151,5 +181,56 @@
 		min-height: 0;
 		display: flex;
 		position: relative;
+	}
+	.fs-enter {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		width: 32px;
+		height: 32px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--text-dim);
+		opacity: 0.45;
+		transition: opacity 0.18s var(--ease), color 0.18s var(--ease);
+		z-index: 3;
+	}
+	.fs-enter:hover {
+		opacity: 1;
+		color: var(--text);
+	}
+
+	.fs-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 60;
+		background: #000;
+		display: flex;
+	}
+	.fs-overlay.idle {
+		cursor: none;
+	}
+	.fs-close {
+		position: absolute;
+		top: 16px;
+		right: 16px;
+		width: 42px;
+		height: 42px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--text);
+		background: rgba(0, 0, 0, 0.35);
+		z-index: 61;
+		opacity: 1;
+		transition: opacity 0.6s ease;
+	}
+	.fs-close:hover {
+		color: var(--accent);
+	}
+	.fs-overlay.idle .fs-close {
+		opacity: 0;
+		pointer-events: none;
 	}
 </style>

@@ -43,6 +43,12 @@ export function handleKey(e) {
 		return;
 	}
 
+	if (app.fullscreenViz && k === 'Escape') {
+		e.preventDefault();
+		app.fullscreenViz = false;
+		return;
+	}
+
 	if (k === 'Tab') {
 		e.preventDefault();
 		A.cycleView(e.shiftKey ? -1 : 1);

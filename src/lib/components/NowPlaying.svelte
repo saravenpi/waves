@@ -1,5 +1,5 @@
 <script>
-	import { app, togglePlay, next, prev, toggleLoop, toggleFavorite, isLiked } from '$lib/state.svelte.js';
+	import { app, togglePlay, next, prev, toggleLoop, toggleFavoritePath, isLiked } from '$lib/state.svelte.js';
 	import Waveform from './Waveform.svelte';
 	import Icon from './Icon.svelte';
 
@@ -30,7 +30,12 @@
 					<div class="artist">{app.current.artist || 'Unknown artist'}</div>
 				</div>
 				<div class="controls">
-					<button class="ctrl" class:on={liked} onclick={toggleFavorite} aria-label="Favorite">
+					<button
+						class="ctrl"
+						class:on={liked}
+						onclick={() => toggleFavoritePath(app.current.path, app.current.name)}
+						aria-label="Favorite"
+					>
 						<Icon name="heart" size={18} />
 					</button>
 					<button class="ctrl" onclick={prev} aria-label="Previous"><Icon name="prev" size={18} /></button>
