@@ -2,7 +2,7 @@
 	let { bars, color = '#9664ff', playing = false } = $props();
 
 	const EMPTY = new Float32Array(64);
-	const N = 160;
+	const N = 96;
 	const COLS = 16;
 
 	let canvas;
@@ -61,7 +61,7 @@
 		let initW = 0;
 		let initH = 0;
 		const resize = () => {
-			const dpr = window.devicePixelRatio || 1;
+			const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
 			const r = canvas.getBoundingClientRect();
 			w = r.width;
 			h = r.height;
@@ -153,31 +153,15 @@
 					fy[j] -= uy * fmag;
 
 					if (distance < 200) {
-						const bandJ = band[j];
-						const pulseI = Math.sin(time * 4 + bandI * 0.1) * magI;
-						const pulseJ = Math.sin(time * 4 + bandJ * 0.1) * magJ;
-						for (let seg = 0; seg < 8; seg++) {
-							const tStart = seg / 8;
-							const tEnd = (seg + 1) / 8;
-							const tMid = (seg + 0.5) / 8;
-							const waveI = Math.sin(TWO_PI * (tMid - time * 2)) * pulseI;
-							const waveJ = Math.sin(TWO_PI * (1 - tMid - time * 2)) * pulseJ;
-							const pulse = Math.abs((waveI + waveJ) * 0.5);
-							const alpha =
-								Math.min(
-									255,
-									(1 - distance / 200) *
-										100 *
-										(1 + avgMag * 2 + combined * 1.5 + pulse * 3)
-								) / 255;
-							const lw = 1.5 + combined * 2 + pulse * 3;
-							ctx.strokeStyle = `rgba(${pr},${pg},${pb},${alpha})`;
-							ctx.lineWidth = lw;
-							ctx.beginPath();
-							ctx.moveTo(xi + dx * tStart, yi + dy * tStart);
-							ctx.lineTo(xi + dx * tEnd, yi + dy * tEnd);
-							ctx.stroke();
-						}
+						const alpha =
+							Math.min(255, (1 - distance / 200) * 110 * (1 + avgMag * 2 + combined * 1.5)) /
+							255;
+						ctx.strokeStyle = `rgba(${pr},${pg},${pb},${alpha})`;
+						ctx.lineWidth = 1 + combined * 2;
+						ctx.beginPath();
+						ctx.moveTo(xi, yi);
+						ctx.lineTo(px[j], py[j]);
+						ctx.stroke();
 					}
 				}
 			}

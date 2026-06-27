@@ -5,16 +5,26 @@
 	let box = $state(null);
 	let dragging = false;
 	let raf = 0;
+	let lastData = null;
+	let lastW = 0;
+	let lastH = 0;
+	let lastProg = -1;
 
 	function accent() {
 		return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#9664ff';
 	}
 
 	function draw() {
-		if (!canvas || !box) return;
-		const dpr = window.devicePixelRatio || 1;
+		if (!canvas || !box || document.hidden) return;
+		const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
 		const w = box.clientWidth;
 		const h = box.clientHeight;
+		const prog = app.duration > 0 ? app.currentTime / app.duration : 0;
+		if (app.waveform === lastData && w === lastW && h === lastH && prog === lastProg) return;
+		lastData = app.waveform;
+		lastW = w;
+		lastH = h;
+		lastProg = prog;
 		if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
 			canvas.width = Math.round(w * dpr);
 			canvas.height = Math.round(h * dpr);

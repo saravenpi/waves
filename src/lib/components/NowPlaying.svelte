@@ -71,7 +71,7 @@
 		padding: 10px 12px;
 		font-family: 'Undefined', monospace;
 		border-top: 1px solid var(--line);
-		background: var(--bg);
+		background: var(--panel);
 	}
 
 	.bar.empty {

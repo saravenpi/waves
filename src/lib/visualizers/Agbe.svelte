@@ -33,7 +33,7 @@
 		let last = performance.now() / 1000;
 
 		const resize = () => {
-			const dpr = window.devicePixelRatio || 1;
+			const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
 			const r = canvas.getBoundingClientRect();
 			w = r.width;
 			h = r.height;
@@ -79,14 +79,15 @@
 			const midMag = bandMid2;
 
 			ctx.lineWidth = 2.5;
-			for (let r = 0; r < 100; r++) {
-				const ringProgress = r / 100;
+			const RINGS = 60;
+			for (let r = 0; r < RINGS; r++) {
+				const ringProgress = r / RINGS;
 				const baseRadius = maxRadius * (0.2 + ringProgress * 0.7);
 
 				let ringMag;
-				if (r < 25) ringMag = bandLow;
-				else if (r < 50) ringMag = bandMid1;
-				else if (r < 75) ringMag = bandMid2;
+				if (ringProgress < 0.25) ringMag = bandLow;
+				else if (ringProgress < 0.5) ringMag = bandMid1;
+				else if (ringProgress < 0.75) ringMag = bandMid2;
 				else ringMag = bandHigh;
 
 				const radius = baseRadius * ringMag * 2.0;

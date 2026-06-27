@@ -65,7 +65,7 @@
 		gap: 8px;
 		border: 1px solid var(--accent);
 		padding: 8px 12px;
-		background: transparent;
+		background: var(--panel);
 	}
 	.icon {
 		color: var(--text-dim);

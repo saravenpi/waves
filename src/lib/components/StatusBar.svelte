@@ -31,7 +31,7 @@
 		gap: 8px;
 		flex-wrap: nowrap;
 		overflow: hidden;
-		background: var(--statusbar-bg);
+		background: var(--panel);
 		border-top: 1px solid var(--line);
 		padding: 6px 16px;
 		font-size: 13px;

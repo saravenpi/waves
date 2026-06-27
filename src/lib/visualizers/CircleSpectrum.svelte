@@ -28,7 +28,7 @@
 		let last = performance.now() / 1000;
 
 		const resize = () => {
-			const dpr = window.devicePixelRatio || 1;
+			const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
 			const r = canvas.getBoundingClientRect();
 			w = r.width;
 			h = r.height;

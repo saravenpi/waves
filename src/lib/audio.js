@@ -60,12 +60,13 @@ class AudioEngine {
 		return this.audio && isFinite(this.audio.duration) ? this.audio.duration : 0;
 	}
 
-	async computeWaveform(path, samples = 500) {
-		this.init();
+	async computeWaveform(path, samples = 256) {
 		try {
 			const res = await fetch(convertFileSrc(path));
 			const buf = await res.arrayBuffer();
-			const decoded = await this.ctx.decodeAudioData(buf);
+			const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+			const oac = new OAC(1, 1, 8000);
+			const decoded = await oac.decodeAudioData(buf);
 			const data = decoded.getChannelData(0);
 			const block = Math.floor(data.length / samples) || 1;
 			const out = new Array(samples).fill(0);

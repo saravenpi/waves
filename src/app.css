@@ -16,6 +16,7 @@
 	--text-faint: #787878;
 	--input-bg: #282828;
 	--hover: #3c3c3c;
+	--panel: transparent;
 	--accent: #9664ff;
 	--accent-rgb: 150, 100, 255;
 	--accent-soft: rgba(150, 100, 255, 0.16);
@@ -26,8 +27,10 @@
 
 html.app-transparent,
 html.app-transparent body {
-	--bg: transparent;
-	--statusbar-bg: transparent;
+	--bg: rgba(8, 8, 11, 0.22);
+	--panel: rgba(14, 14, 17, 0.62);
+	--text-dim: #b6b6b6;
+	--text-faint: #9c9c9c;
 	background: transparent;
 }
 

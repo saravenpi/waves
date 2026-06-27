@@ -41,13 +41,11 @@
 	</div>
 
 	{#if app.view === 'browser'}
-		<div class="sep"></div>
 		<div class="crumb-row">
 			<button class="back" onclick={back}><Icon name="chevron-left" size={16} /></button>
 			<Icon name="chevron-right" size={11} />
 			<span class="crumb">{crumb}</span>
 		</div>
-		<div class="sep"></div>
 		<div class="tabs">
 			{#each modes as m (m.id)}
 				<button
@@ -74,7 +72,6 @@
 <style>
 	.sidebar {
 		background: var(--sidebar-bg);
-		border: 1px solid var(--line);
 		height: 100%;
 		display: flex;
 		flex-direction: column;
@@ -125,12 +122,6 @@
 		border: 1px solid var(--accent);
 	}
 
-	.sep {
-		height: 1px;
-		background: var(--line);
-		margin: 0;
-		flex-shrink: 0;
-	}
 
 	.crumb-row {
 		display: flex;

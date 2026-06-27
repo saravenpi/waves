@@ -86,6 +86,7 @@
 >
 	<div class="dragstrip" data-tauri-drag-region></div>
 
+	{#if !app.fullscreenViz}
 	<div class="body">
 		<div class="sidebar-wrap" style="width:{app.config.sidebar_width}px">
 			<Sidebar />
@@ -101,7 +102,7 @@
 		<section class="content">
 			<SearchBar />
 			<div class="stage">
-				{#if app.config.animation}
+				{#if app.config.animation && !app.fullscreenViz}
 					<Viz bars={spectrumBars} color={app.config.primary_color} playing={app.playing} />
 				{/if}
 				<button class="fs-enter" onclick={enterFs} aria-label="Fullscreen animation" title="Fullscreen">
@@ -114,6 +115,7 @@
 
 	{#if app.config.show_status_bar}
 		<StatusBar />
+	{/if}
 	{/if}
 
 	<MetadataEditor />
@@ -205,7 +207,7 @@
 		position: fixed;
 		inset: 0;
 		z-index: 60;
-		background: #000;
+		background: var(--bg);
 		display: flex;
 	}
 	.fs-overlay.idle {
