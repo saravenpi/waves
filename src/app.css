@@ -1,0 +1,65 @@
+@font-face {
+	font-family: 'Undefined';
+	src: url('/fonts/undefined-medium.otf') format('opentype');
+	font-weight: normal;
+	font-display: swap;
+}
+
+:root {
+	--bg: #000000;
+	--sidebar-bg: #101010;
+	--statusbar-bg: #080808;
+	--line: #404040;
+	--text: #ffffff;
+	--text-dim: #969696;
+	--text-muted: #646464;
+	--text-faint: #787878;
+	--input-bg: #282828;
+	--hover: #3c3c3c;
+	--accent: #9664ff;
+	--accent-rgb: 150, 100, 255;
+	--accent-soft: rgba(150, 100, 255, 0.16);
+	--accent-faint: rgba(150, 100, 255, 0.08);
+	--ease: cubic-bezier(0.22, 1, 0.36, 1);
+	font-family: 'Undefined', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html,
+body {
+	height: 100%;
+	background: var(--bg);
+	color: var(--text);
+	overflow: hidden;
+	-webkit-font-smoothing: antialiased;
+	user-select: none;
+}
+
+button {
+	font-family: inherit;
+	color: inherit;
+	cursor: pointer;
+	border: none;
+	background: none;
+}
+
+input {
+	font-family: inherit;
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+::-webkit-scrollbar-thumb {
+	background: var(--line);
+	border-radius: 0;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}

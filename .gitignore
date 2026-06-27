@@ -1,31 +1,8 @@
-# Rust
-/target/
-Cargo.lock
-**/*.rs.bk
-*.pdb
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+node_modules/
+/build
+/.svelte-kit
+/dist
+src-tauri/target/
+src-tauri/gen/
 .DS_Store
-
-# Build artifacts
-/waves
-*.exe
-*.dmg
-*.deb
-*.rpm
-
-# macOS bundle (allow structure, ignore binaries)
-macos-bundle/Waves.app/Contents/MacOS/
-
-# Config and cache
-.waves.yml
-.waves/
-
-# Temporary files
-*.tmp
 *.log

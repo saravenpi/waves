@@ -1,0 +1,86 @@
+<script>
+	let { bars, color = '#9664ff', playing = false } = $props();
+
+	const EMPTY = new Float32Array(64);
+
+	let canvas;
+	let parsed = [152, 100, 255];
+	let lastColor = '';
+
+	function parseColor(hex) {
+		if (hex === lastColor) return;
+		lastColor = hex;
+		let h = hex.replace('#', '');
+		if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+		const n = parseInt(h, 16);
+		if (!isNaN(n) && h.length === 6) {
+			parsed = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+		}
+	}
+
+	$effect(() => {
+		const ctx = canvas.getContext('2d');
+		let raf;
+		let w = 0;
+		let h = 0;
+
+		const resize = () => {
+			const dpr = window.devicePixelRatio || 1;
+			const r = canvas.getBoundingClientRect();
+			w = r.width;
+			h = r.height;
+			canvas.width = Math.max(1, Math.round(w * dpr));
+			canvas.height = Math.max(1, Math.round(h * dpr));
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		};
+
+		const ro = new ResizeObserver(resize);
+		ro.observe(canvas);
+		resize();
+
+		const draw = () => {
+			parseColor(color);
+			const [pr, pg, pb] = parsed;
+			const b = bars || EMPTY;
+
+			ctx.clearRect(0, 0, w, h);
+			ctx.fillStyle = '#000';
+			ctx.fillRect(0, 0, w, h);
+
+			const slot = w / 64;
+			const barW = slot * 0.8;
+			for (let i = 0; i < 64; i++) {
+				let m = b[i];
+				if (m < 0) m = 0;
+				else if (m > 1) m = 1;
+				const barHeight = m * h * 0.8;
+				const x = i * slot;
+				const y = h - barHeight;
+				const r = Math.max(20, pr * m);
+				const g = Math.max(20, pg * m);
+				const bl = Math.max(20, pb * m);
+				ctx.fillStyle = `rgb(${r | 0},${g | 0},${bl | 0})`;
+				ctx.fillRect(x, y, barW, barHeight);
+			}
+
+			raf = requestAnimationFrame(draw);
+		};
+
+		raf = requestAnimationFrame(draw);
+
+		return () => {
+			cancelAnimationFrame(raf);
+			ro.disconnect();
+		};
+	});
+</script>
+
+<canvas bind:this={canvas}></canvas>
+
+<style>
+	canvas {
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+</style>
