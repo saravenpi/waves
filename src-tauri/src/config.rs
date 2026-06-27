@@ -50,6 +50,8 @@ pub struct Config {
     pub ui_sounds_volume: f32,
     #[serde(default = "d_true")]
     pub startup_sound_enabled: bool,
+    #[serde(default)]
+    pub transparent: bool,
 }
 
 impl Default for Config {
@@ -67,6 +69,7 @@ impl Default for Config {
             ui_sounds_enabled: true,
             ui_sounds_volume: 0.04,
             startup_sound_enabled: true,
+            transparent: false,
         }
     }
 }

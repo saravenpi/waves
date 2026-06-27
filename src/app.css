@@ -24,6 +24,13 @@
 	font-family: 'Undefined', ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
+html.app-transparent,
+html.app-transparent body {
+	--bg: transparent;
+	--statusbar-bg: transparent;
+	background: transparent;
+}
+
 * {
 	box-sizing: border-box;
 	margin: 0;

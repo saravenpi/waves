@@ -97,8 +97,6 @@
 			const b = bars || EMPTY;
 
 			ctx.clearRect(0, 0, w, h);
-			ctx.fillStyle = '#000';
-			ctx.fillRect(0, 0, w, h);
 
 			const cx = w / 2;
 			const cy = h / 2;

@@ -44,8 +44,6 @@
 			const b = bars || EMPTY;
 
 			ctx.clearRect(0, 0, w, h);
-			ctx.fillStyle = '#000';
-			ctx.fillRect(0, 0, w, h);
 
 			const slot = w / 64;
 			const barW = slot * 0.8;

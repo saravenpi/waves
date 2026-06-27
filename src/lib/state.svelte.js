@@ -1,8 +1,16 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { engine } from './audio.js';
 import { sounds } from './sounds.js';
 import { Spectrum, BANDS } from './spectrum.js';
-import { loadConfig, saveConfig, applyAccent, COLOR_PRESETS, ANIMATION_TYPES } from './config.js';
+import {
+	loadConfig,
+	saveConfig,
+	applyAccent,
+	applyTransparency,
+	COLOR_PRESETS,
+	ANIMATION_TYPES
+} from './config.js';
 
 export const spectrumBars = new Float32Array(BANDS);
 const spectrum = new Spectrum();
@@ -53,7 +61,8 @@ export const app = $state({
 		primary_color: '#9664FF',
 		ui_sounds_enabled: true,
 		ui_sounds_volume: 0.04,
-		startup_sound_enabled: true
+		startup_sound_enabled: true,
+		transparent: false
 	}
 });
 
@@ -67,6 +76,7 @@ export async function initApp() {
 	const cfg = await loadConfig();
 	app.config = cfg;
 	applyAccent(cfg.primary_color);
+	applyTransparency(cfg.transparent);
 	sounds.configure(cfg.ui_sounds_enabled, cfg.ui_sounds_volume, cfg.startup_sound_enabled);
 
 	app.liked = await invoke('get_liked');
@@ -77,6 +87,7 @@ export async function initApp() {
 	app.library = await invoke('scan_library', { root: dir });
 	await openFolder(dir);
 
+	startWatching();
 	app.ready = true;
 	sounds.startup();
 }
@@ -87,6 +98,28 @@ export async function openFolder(path) {
 	app.entries = entries;
 	app.selected = 0;
 	app.groupLevel = 0;
+	invoke('watch_dir', { path }).catch(() => {});
+}
+
+let watchTimer;
+async function refreshCurrentDir() {
+	if (app.view === 'browser' && app.browseMode === 'folders') {
+		const prev = app.entries[app.selected]?.path;
+		const entries = await invoke('list_dir', { path: app.cwd });
+		app.entries = entries;
+		const idx = entries.findIndex((e) => e.path === prev);
+		app.selected = idx >= 0 ? idx : Math.min(app.selected, Math.max(0, entries.length - 1));
+	} else {
+		app.library = await invoke('scan_library', { root: app.root });
+		rebuildEntries();
+	}
+}
+
+export function startWatching() {
+	listen('dir-changed', () => {
+		clearTimeout(watchTimer);
+		watchTimer = setTimeout(refreshCurrentDir, 250);
+	});
 }
 
 function uniqueGroups(key) {
@@ -391,6 +424,7 @@ export async function saveEditor(fields) {
 export async function applyConfig(patch) {
 	app.config = { ...app.config, ...patch };
 	if (patch.primary_color) applyAccent(patch.primary_color);
+	if (patch.transparent !== undefined) applyTransparency(app.config.transparent);
 	sounds.configure(
 		app.config.ui_sounds_enabled,
 		app.config.ui_sounds_volume,
@@ -495,7 +529,8 @@ export const SETTINGS = [
 	{ key: 'sidebar_position', label: 'Sidebar Position', type: 'cycle', options: ['left', 'right'] },
 	{ key: 'ui_sounds_enabled', label: 'UI Sounds', type: 'toggle' },
 	{ key: 'ui_sounds_volume', label: 'UI Sounds Volume', type: 'range' },
-	{ key: 'startup_sound_enabled', label: 'Startup Sound', type: 'toggle' }
+	{ key: 'startup_sound_enabled', label: 'Startup Sound', type: 'toggle' },
+	{ key: 'transparent', label: 'Transparency (macOS)', type: 'toggle' }
 ];
 
 export function settingsMove(d) {

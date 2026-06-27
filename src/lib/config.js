@@ -1,7 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export async function loadConfig() {
 	return invoke('get_config');
+}
+
+export async function applyTransparency(enable) {
+	document.documentElement.classList.toggle('app-transparent', enable);
+	try {
+		const win = getCurrentWindow();
+		if (enable) await win.setEffects({ effects: ['hudWindow'] });
+		else await win.clearEffects();
+	} catch (e) {}
 }
 
 export async function saveConfig(config) {
